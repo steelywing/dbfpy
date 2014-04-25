@@ -13,6 +13,7 @@ __all__ = ["MemoFile", "MemoData"]
 
 import os
 import struct
+import locale
 
 class MemoData(str):
 
@@ -71,9 +72,9 @@ class MemoFile(object):
             # a filename
             self.name = f
             if new:
-                self.stream = file(f, "w+b")
+                self.stream = open(f, "w+b")
             else:
-                self.stream = file(f, ("r+b", "rb")[bool(readOnly)])
+                self.stream = open(f, ("r+b", "rb")[bool(readOnly)])
         else:
             # a stream
             self.name = getattr(f, "name", "")
@@ -133,16 +134,18 @@ class MemoFile(object):
         if self.is_fpt:
             (_type, _len) = struct.unpack(">LL", self.stream.read(8))
             if _type == MemoData.TYPE_NULL:
-                _value = ''
+                _value = b''
             else:
                 _value = self.stream.read(_len)
         else: # DBT
             _type = MemoData.TYPE_MEMO
             self.stream.seek(self.blocksize * blocknum)
-            _value = ''
+            _value = b''
             while self.EOT not in _value:
                 _value += self.stream.read(self.blocksize)
             _value = _value[:_value.find(self.EOT)]
+            
+        _value = _value.decode(locale.getpreferredencoding())
         return MemoData(_value, _type)
 
     def write(self, value):
@@ -153,6 +156,7 @@ class MemoFile(object):
 
         """
         _rv = self.tail
+        value = value.encode(locale.getpreferredencoding())
         self.stream.seek(self.blocksize * _rv)
         if self.is_fpt:
             _length = len(value) + 8
@@ -163,7 +167,7 @@ class MemoFile(object):
             self.stream.write(value + self.EOT)
         #_cnt = int(math.ceil(float(_length) / self.blocksize))
         _cnt = (_length + self.blocksize - 1) / self.blocksize
-        self.stream.write("\0" * (_cnt * self.blocksize - _length))
+        self.stream.write(b"\x00" * (_cnt * self.blocksize - _length))
         self.tail += _cnt
         self.stream.seek(0)
         self.stream.write(struct.pack(">L", self.tail))

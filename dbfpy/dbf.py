@@ -276,41 +276,7 @@ class Dbf(object):
     #    """Flush stream upon deletion of the object."""
     #    self.flush()
 
-
-def demoRead(filename):
-    _dbf = Dbf(filename, True)
-    for _rec in _dbf:
-        print()
-        print(repr(_rec))
-    _dbf.close()
-
-def demoCreate(filename):
-    _dbf = Dbf(filename, new=True)
-    _dbf.addField(
-        ("NAME", "C", 15),
-        ("SURNAME", "C", 25),
-        ("INITIALS", "C", 10),
-        ("BIRTHDATE", "D"),
-    )
-    for (_n, _s, _i, _b) in (
-        ("John", "Miller", "YC", (1981, 1, 2)),
-        ("Andy", "Larkin", "AL", (1982, 3, 4)),
-        ("Bill", "Clinth", "", (1983, 5, 6)),
-        ("Bobb", "McNail", "", (1984, 7, 8)),
-    ):
-        _rec = _dbf.newRecord()
-        _rec["NAME"] = _n
-        _rec["SURNAME"] = _s
-        _rec["INITIALS"] = _i
-        _rec["BIRTHDATE"] = _b
-        _rec.store()
-    print(repr(_dbf))
-    _dbf.close()
-
 if (__name__=='__main__'):
-    import sys
-    _name = len(sys.argv) > 1 and sys.argv[1] or "county.dbf"
-    demoCreate(_name)
-    demoRead(_name)
+    pass
 
 # vim: set et sw=4 sts=4 :
