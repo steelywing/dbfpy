@@ -1,0 +1,133 @@
+Version 2.2.5 (16-sep-2010)
+---------------------------
+
+Fix Y2K issue with Last Update field in the header (sf bug 3065838).
+
+Version 2.2.4 (26-may-2009)
+---------------------------
+
+Ignore leading and trailing zero bytes in numeric fields.
+
+Version 2.2.3 (17-feb-2009)
+---------------------------
+
+Support for writing empty date values.
+
+Version 2.2.2 (16-sep-2008)
+---------------------------
+
+Numeric decoder returns float when the value contains decimal point
+without regard to the number of decimal places declared in the header.
+
+Version 2.2.1 (16-mar-2008)
+---------------------------
+
+Fix: raise ValueError if a name passed to field constructor
+is longer than 10 characters.
+
+Version 2.2.0 (11-feb-2007)
+---------------------------
+
+Features:
+  - date fields are allowed to contain values stored with leading spaces
+    instead of leading zeroes.
+  - dbf.header returns field definition objects if accessed as a list
+    or as a dictionary.
+  - added raw data access methods: DbfRecord.rawFromStream(),
+    DbfFieldDef.rawFromRecord().
+  - added conversion error handling: if ignoreErrors=True is passed
+    with Dbf constructor arguments, then failing field value conversions
+    will not raise errors but instead will return special object
+    INVALID_VALUE which is equal to None, empty string and zero.
+    .ignoreErrors property of the Dbf instances may be toggled also
+    after instance initialization.
+
+Version 2.1.0 (01-dec-2006)
+---------------------------
+
+Features:
+  - support field types 'F' (float), 'I' (integer) and 'Y' (currency)
+
+Fix processing of empty Timestamp values
+
+Version 2.0.3 (30-oct-2006)
+---------------------------
+
+Fixes:
+  - compatibility fix for Python versions prior to 2.4 (sf bug 1574526)
+  - wrong record length when reading from file object (sf bug 1586619)
+
+Version 2.0.2 (08-jul-2006)
+---------------------------
+
+Fix dbfnew (legacy API for DBF creation)
+
+Version 2.0.1 (10-mar-2006)
+---------------------------
+
+Fixes in Numeric field processing:
+  - decoding inserted decimal point where it shouldn't;
+  - encoded value never exceeds field length.
+    If encoded value is too large for the field, decimal digits get
+    removed (rounding the value down).  When integer value is larger
+    than the field length, ValueError is raised.
+
+Fix: Date and Logical fields were not able to decode empty values.
+
+Errors raised from field processing include field name.
+
+This file is included in the source distribution.
+
+Version 2.0.0 (20-dec-2005)
+---------------------------
+
+Changed style of doc-strings; added more docs.
+
+``mx.DateTime`` isn't required anymore - internal representation uses
+``datetime.date`` and ``datetime.datetime`` classes from the batteries.
+
+'D' and 'T' became "smarter":
+  - date fields could accept:
+    - date/time tuples [or tuples with at least
+      first three components (year, day, month)];
+    - strings in format 'yyyymmdd' or 'yymmdd';
+    - ``datetime.date`` and ``datetime.datetime`` instances;
+    - ``None`` instance - use current date value;
+    - numbers (``int``, ``long``, ``float``)
+      which are treated as seconds from epoch;
+    - objects having 'ticks' method (``mx.DateTime`` for example);
+  - datetime fields can accept everything date fields do
+    except string objects (which is a TODO stuff).
+
+Changed identifiers and args of some methods. For example old code
+
+         dbf = Dbf()
+         dbf.openFile("county.dbf", readOnly=1)
+
+now should be written like
+
+         dbf = Dbf("county.dbf", True)
+
+All classes now are new-style classes (inherited from the ``object``).
+
+Got rid of ``binnum`` and ``strutil`` modules,
+using ``struct`` and string methods instead.
+
+Group classes in different modules instead of having them all in
+one, as it was earlier (see dbf.py from the previous release(s)).
+
+Use fields' registry to simplify registering of the new data types.
+
+
+Previous changes:
+-----------------
+
+took over development 2000-10-06 Hans Fiby
+
+changes: 2001-02-07 Hans Fiby
+ * read long integers as long
+ * add this CHANGES File
+
+changed: 2000-10-06 Hans Fiby
+ * added dbfnew.py
+ * fixed decimal points
