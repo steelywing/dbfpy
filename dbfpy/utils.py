@@ -25,7 +25,7 @@ def unzfill(str):
 
     """
     try:
-        return str[:str.index('\0')]
+        return str[:str.index(b'\x00')]
     except ValueError:
         return str
 

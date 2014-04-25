@@ -35,6 +35,7 @@ __all__ = ["lookupFor",] # field classes added at the end of the module
 import datetime
 import struct
 import sys
+import locale
 
 from .memo import MemoData
 from . import utils
@@ -59,8 +60,8 @@ class DbfFieldDef(object):
 
     """
 
-    __slots__ = ("name", "length", "decimalCount",
-        "start", "end", "ignoreErrors")
+    # __slots__ = ("name", "length", "decimalCount",
+        # "start", "end", "ignoreErrors")
 
     # length of the field, None in case of variable-length field,
     # or a number if this field is a fixed-length field
@@ -88,7 +89,7 @@ class DbfFieldDef(object):
         if len(name) >10:
             raise ValueError("Field name \"%s\" is too long" % name)
         name = str(name).upper()
-        if self.__class__.length is None:
+        if self.length is None:
             if length is None:
                 raise ValueError("[%s] Length isn't specified" % name)
             length = int(length)
@@ -129,8 +130,8 @@ class DbfFieldDef(object):
 
         """
         assert len(string) == 32
-        _length = ord(string[16])
-        return cls(utils.unzfill(string)[:11], _length, ord(string[17]),
+        _length = string[16]
+        return cls(utils.unzfill(string)[:11], _length, string[17],
             start, start + _length, ignoreErrors=ignoreErrors)
     fromString = classmethod(fromString)
 
@@ -142,18 +143,20 @@ class DbfFieldDef(object):
             definition of this field.
 
         """
+        encoding = locale.getpreferredencoding()
+        
         if sys.version_info < (2, 4):
             # earlier versions did not support padding character
-            _name = self.name[:11] + "\0" * (11 - len(self.name))
+            _name = self.name[:11].encode(encoding) + b"\x00" * (11 - len(self.name))
         else:
-            _name = self.name.ljust(11, '\0')
+            _name = self.name.encode(encoding).ljust(11, b'\x00')
         return (
             _name +
-            self.typeCode +
+            self.typeCode.encode(encoding) +
             struct.pack("<L", self.start) +
-            chr(self.length) +
-            chr(self.decimalCount) +
-            chr(0) * 14
+            chr(self.length).encode(encoding) +
+            chr(self.decimalCount).encode(encoding) +
+            b'\x00' * 14
         )
 
     def __repr__(self):
@@ -213,7 +216,7 @@ class DbfCharacterFieldDef(DbfFieldDef):
         Return value is a ``value`` argument with stripped right spaces.
 
         """
-        return value.rstrip(" ")
+        return value.rstrip(b" ").decode(locale.getpreferredencoding())
 
     def encodeValue(self, value):
         """Return raw data string encoded from a ``value``."""
@@ -240,7 +243,7 @@ class DbfNumericFieldDef(DbfFieldDef):
             Return value is a int (long) or float instance.
 
         """
-        value = value.strip(" \0")
+        value = value.strip(b" \x00").decode(locale.getpreferredencoding())
         if "." in value:
             # a float (has decimal separator)
             return float(value)

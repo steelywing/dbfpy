@@ -96,20 +96,19 @@ class DbfHeader(object):
         # initialize `self.changed` in this way
         self.changed = bool(self.fields)
 
-    # @classmethod
+    @classmethod
     def fromString(cls, string):
         """Return header instance from the string object."""
         return cls.fromStream(io.StringIO(str(string)))
-    fromString = classmethod(fromString)
 
-    # @classmethod
+    @classmethod
     def fromStream(cls, stream):
         """Return header object from the stream."""
         stream.seek(0)
         _data = stream.read(32)
         (_cnt, _hdrLen, _recLen) = struct.unpack("<I2H", _data[4:12])
         #reserved = _data[12:32]
-        _year = ord(_data[1])
+        _year = _data[1]
         if _year < 80:
             # dBase II started at 1980.  It is quite unlikely
             # that actual last update date is before that year.
@@ -117,21 +116,20 @@ class DbfHeader(object):
         else:
             _year += 1900
         ## create header object
-        _obj = cls(None, _hdrLen, _recLen, _cnt, ord(_data[0]),
-            (_year, ord(_data[2]), ord(_data[3])))
+        _obj = cls(None, _hdrLen, _recLen, _cnt, _data[0],
+            (_year, _data[2], _data[3]))
         ## append field definitions
         # position 0 is for the deletion flag
         _pos = 1
         _data = stream.read(1)
-        while _data[0] != "\x0D":
+        while _data[0] != 0x0D:
             _data += stream.read(31)
-            _fld = fields.lookupFor(_data[11]).fromString(_data, _pos)
+            _fld = fields.lookupFor(chr(_data[11])).fromString(_data, _pos)
             _obj._addField(_fld)
             _pos = _fld.end
             _data = stream.read(1)
         return _obj
-    fromStream = classmethod(fromStream)
-
+    
     ## properties
 
     year = property(lambda self: self.lastUpdate.year)
@@ -267,8 +265,8 @@ Version (signature): 0x%02x
         """Encode and write header to the stream."""
         stream.seek(0)
         stream.write(self.toString())
-        stream.write("".join([_fld.toString() for _fld in self.fields]))
-        stream.write(chr(0x0D))   # cr at end of all hdr data
+        stream.write(b"".join([_fld.toString() for _fld in self.fields]))
+        stream.write(b'\x0D')   # cr at end of all hdr data
         _pos = stream.tell()
         if _pos < self.headerLength:
             stream.write("\0" * (self.headerLength - _pos))
@@ -278,10 +276,10 @@ Version (signature): 0x%02x
         """Returned 32 chars length string with encoded header."""
         # FIXME: should keep flag and code page marks read from file
         if self.hasMemoField:
-            _flag = "\x02"
+            _flag = b"\x02"
         else:
-            _flag = "\0"
-        _codepage = "\0"
+            _flag = b"\00"
+        _codepage = b"\00"
         return struct.pack("<4BI2H",
             self.signature,
             self.year - 1900,
@@ -289,7 +287,7 @@ Version (signature): 0x%02x
             self.day,
             self.recordCount,
             self.headerLength,
-            self.recordLength) + "\0" * 16 + _flag + _codepage + "\0\0"
+            self.recordLength) + b"\x00" * 16 + _flag + _codepage + b"\x00\x00"
 
     def setCurrentDate(self):
         """Update ``self.lastUpdate`` field with current date value."""

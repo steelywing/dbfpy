@@ -1,1 +1,4 @@
 *.bak
+build/
+__pycache__
+*.dbf

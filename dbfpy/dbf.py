@@ -122,10 +122,10 @@ class Dbf(object):
             if new:
                 # new table (table file must be
                 # created or opened and truncated)
-                self.stream = file(f, "w+b")
+                self.stream = open(f, "w+b")
             else:
                 # table file must exist
-                self.stream = file(f, ("r+b", "rb")[bool(readOnly)])
+                self.stream = open(f, ("r+b", "rb")[bool(readOnly)])
         else:
             # a stream
             self.name = getattr(f, "name", "")
@@ -208,13 +208,18 @@ class Dbf(object):
             self.header.setCurrentDate()
             self.header.write(self.stream)
             self.stream.flush()
-            self.memo.flush()
+            if self.memo is not None:
+                self.memo.flush()
             self._changed = False
 
     def indexOfFieldName(self, name):
         """Index of field named ``name``."""
         # FIXME: move this to header class
-        return self.header.fields.index(name)
+        for index, field in enumerate(self.header.fields):
+            if field.name == name:
+                return index
+        else:
+            raise ValueError('Field not found: {0}'.format(name))
 
     def newRecord(self):
         """Return new record, which belong to this table."""
