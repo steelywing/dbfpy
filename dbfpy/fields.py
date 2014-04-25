@@ -36,8 +36,8 @@ import datetime
 import struct
 import sys
 
-from memo import MemoData
-import utils
+from .memo import MemoData
+from . import utils
 
 ## abstract definitions
 
@@ -474,7 +474,7 @@ def lookupFor(typeCode):
 
 ## register generic types
 
-for (_name, _val) in globals().items():
+for (_name, _val) in list(globals().items()):
     if isinstance(_val, type) and issubclass(_val, DbfFieldDef) \
     and (_name != "DbfFieldDef"):
         __all__.append(_name)
