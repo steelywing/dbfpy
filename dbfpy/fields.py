@@ -4,29 +4,6 @@ TODO:
   - make memos work
   - use DBF encoding to encode
 """
-"""History (most recent first):
-14-dec-2010 [als]   support reading and writing Memo fields;
-                    .toString: write field offset
-26-may-2009 [als]   DbfNumericFieldDef.decodeValue: strip zero bytes
-05-feb-2009 [als]   DbfDateFieldDef.encodeValue: empty arg produces empty date
-16-sep-2008 [als]   DbfNumericFieldDef decoding looks for decimal point
-                    in the value to select float or integer return type
-13-mar-2008 [als]   check field name length in constructor
-11-feb-2007 [als]   handle value conversion errors
-10-feb-2007 [als]   DbfFieldDef: added .rawFromRecord()
-01-dec-2006 [als]   Timestamp columns use None for empty values
-31-oct-2006 [als]   support field types 'F' (float), 'I' (integer)
-                    and 'Y' (currency);
-                    automate export and registration of field classes
-04-jul-2006 [als]   added export declaration
-10-mar-2006 [als]   decode empty values for Date and Logical fields;
-                    show field name in errors
-10-mar-2006 [als]   fix Numeric value decoding: according to spec,
-                    value always is string representation of the number;
-                    ensure that encoded Numeric value fits into the field
-20-dec-2005 [yc]    use field names in upper case
-15-dec-2005 [yc]    field definitions moved from `dbf`.
-"""
 
 __version__ = "$Revision: 1.15 $"[11:-2]
 __date__ = "$Date: 2010/12/14 11:04:49 $"[7:-2]

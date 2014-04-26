@@ -1,9 +1,6 @@
 """Memo file support.
 
 """
-"""History (most recent first):
-13-dec-2010 [als]   created
-"""
 
 __version__ = "$Revision: 1.3 $"[11:-2]
 __date__ = "$Date: 2010/12/15 08:08:23 $"[7:-2]

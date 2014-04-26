@@ -37,26 +37,6 @@ Examples:
         dbf.close()
 
 """
-"""History (most recent first):
-17-dec-2012 [als]   support slicing
-14-dec-2010 [als]   added Memo file support
-11-feb-2007 [als]   export INVALID_VALUE;
-                    Dbf: added .ignoreErrors, .INVALID_VALUE
-04-jul-2006 [als]   added export declaration
-20-dec-2005 [yc]    removed fromStream and newDbf methods:
-                    use argument of __init__ call must be used instead;
-                    added class fields pointing to the header and
-                    record classes.
-17-dec-2005 [yc]    split to several modules; reimplemented
-13-dec-2005 [yc]    adapted to the changes of the `strutil` module.
-13-sep-2002 [als]   support FoxPro Timestamp datatype
-15-nov-1999 [jjk]   documentation updates, add demo
-24-aug-1998 [jjk]   add some encodeValue methods (not tested), other tweaks
-08-jun-1998 [jjk]   fix problems, add more features
-20-feb-1998 [jjk]   fix problems, add more features
-19-feb-1998 [jjk]   add create/write capabilities
-18-feb-1998 [jjk]   from dbfload.py
-"""
 
 __version__ = "$Revision: 1.9 $"[11:-2]
 __date__ = "$Date: 2012/12/17 19:16:57 $"[7:-2]

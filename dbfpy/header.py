@@ -5,15 +5,6 @@ TODO:
     (encoding information stored in the DBF header)
 
 """
-"""History (most recent first):
-14-dec-2010 [als]   added Memo file support
-16-sep-2010 [als]   fromStream: fix century of the last update field
-11-feb-2007 [als]   added .ignoreErrors
-10-feb-2007 [als]   added __getitem__: return field definitions
-                    by field name or field number (zero-based)
-04-jul-2006 [als]   added export declaration
-15-dec-2005 [yc]    created
-"""
 
 __version__ = "$Revision: 1.7 $"[11:-2]
 __date__ = "$Date: 2010/12/14 11:07:45 $"[7:-2]

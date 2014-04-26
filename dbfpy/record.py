@@ -1,15 +1,6 @@
 """DBF record definition.
 
 """
-"""History (most recent first):
-11-feb-2007 [als]   __repr__: added special case for invalid field values
-10-feb-2007 [als]   added .rawFromStream()
-30-oct-2006 [als]   fix record length in .fromStream()
-04-jul-2006 [als]   added export declaration
-20-dec-2005 [yc]    DbfRecord.write() -> DbfRecord._write();
-                    added delete() method.
-16-dec-2005 [yc]    record definition moved from `dbf`.
-"""
 
 __version__ = "$Revision: 1.7 $"[11:-2]
 __date__ = "$Date: 2007/02/11 09:05:49 $"[7:-2]

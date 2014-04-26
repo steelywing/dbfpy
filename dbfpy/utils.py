@@ -3,12 +3,6 @@
 TODO:
   - allow strings in getDateTime routine;
 """
-"""History (most recent first):
-11-feb-2007 [als]   added INVALID_VALUE
-10-feb-2007 [als]   allow date strings padded with spaces instead of zeroes
-20-dec-2005 [yc]    handle long objects in getDate/getDateTime
-16-dec-2005 [yc]    created from ``strutil`` module.
-"""
 
 __version__ = "$Revision: 1.4 $"[11:-2]
 __date__ = "$Date: 2007/02/11 08:57:17 $"[7:-2]
