@@ -73,8 +73,10 @@ class DbfRecord(object):
             self.fieldData = list(data)
 
     # XXX: validate self.index before calculating position?
-    position = property(lambda self: self.dbf.header.headerLength + \
-        self.index * self.dbf.header.recordLength)
+    @property
+    def position(self):
+        return (self.dbf.header.headerLength + 
+            self.index * self.dbf.header.recordLength)
 
     @classmethod
     def rawFromStream(cls, dbf, index):
@@ -160,6 +162,8 @@ class DbfRecord(object):
 
 
         """
+        if not self.dbf.stream.writable():
+            return
         self._validateIndex(False)
         self.dbf.stream.seek(self.position)
         self.dbf.stream.write(self.toString())

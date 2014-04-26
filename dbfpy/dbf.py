@@ -47,7 +47,7 @@ __all__ = ["Dbf"]
 from . import header
 from . import memo
 from . import record
-from .utils import INVALID_VALUE
+from . import utils
 
 class Dbf(object):
     """DBF accessor.
@@ -62,7 +62,7 @@ class Dbf(object):
 
     HeaderClass = header.DbfHeader
     RecordClass = record.DbfRecord
-    INVALID_VALUE = INVALID_VALUE
+    INVALID_VALUE = utils.INVALID_VALUE
 
     ## initialization and creation helpers
 
@@ -183,12 +183,12 @@ class Dbf(object):
     ## iterface methods
 
     def close(self):
+        self.flush()
         self.stream.close()
 
     def flush(self):
         """Flush data to the associated stream."""
-        self.header.setCurrentDate()
-        self.header.write(self.stream)
+        self.header.flush(self.stream)
         self.stream.flush()
         # flush if memo is not None
         if hasattr(self.memo, 'flush'):

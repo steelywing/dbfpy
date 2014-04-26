@@ -85,9 +85,7 @@ class DbfHeader(object):
         self.flag = flag
         self.codePage = codePage
         self.ignoreErrors = ignoreErrors
-        # XXX: I'm not sure this is safe to
-        # initialize `self.changed` in this way
-        self.changed = bool(self.fields)
+        self.changed = False
 
     @classmethod
     def fromString(cls, string):
@@ -241,6 +239,12 @@ Version (signature): 0x%02X
 
     ## interface methods
 
+    def flush(self, stream):
+        if not self.changed:
+            return
+        self.setCurrentDate()
+        self.write(stream)
+
     def setMemoFile(self, memo):
         """Attach MemoFile instance to all memo fields; check header signature
         """
@@ -285,6 +289,8 @@ Version (signature): 0x%02X
 
     def write(self, stream):
         """Encode and write header to the stream."""
+        if not stream.writable():
+            return
         stream.seek(0)
         stream.write(self.toString())
         stream.write(b"".join([_fld.toString() for _fld in self.fields]))
