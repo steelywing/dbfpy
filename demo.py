@@ -1,6 +1,7 @@
 from dbfpy import dbf
 
-# create dbf
+## create DBF
+
 db = dbf.Dbf('new.dbf', new=True)
 db.addField(
     ("NAME", "C", 15),
@@ -25,8 +26,8 @@ for (_n, _s, _i, _b) in (
 print(repr(db), '\n\n')
 db.close()
 
+## read DBF
 
-# read dbf
 db = dbf.Dbf('table.dbf', True)
 print(repr(db), '\n')
 for record in db:

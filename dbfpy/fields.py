@@ -2,6 +2,7 @@
 
 TODO:
   - make memos work
+  - change all encode to return binary string
 """
 """History (most recent first):
 14-dec-2010 [als]   support reading and writing Memo fields;
@@ -115,7 +116,8 @@ class DbfFieldDef(object):
 
     def __hash__(self):
         return hash(self.name)
-
+    
+    @classmethod
     def fromString(cls, string, start, ignoreErrors=False):
         """Decode dbf field definition from the string data.
 
@@ -131,9 +133,9 @@ class DbfFieldDef(object):
         """
         assert len(string) == 32
         _length = string[16]
-        return cls(utils.unzfill(string)[:11], _length, string[17],
-            start, start + _length, ignoreErrors=ignoreErrors)
-    fromString = classmethod(fromString)
+        return cls(utils.unzfill(string)[:11].decode(locale.getpreferredencoding()),
+            _length, string[17], start, start + _length,
+            ignoreErrors=ignoreErrors)
 
     def toString(self):
         """Return encoded field definition.
@@ -216,11 +218,12 @@ class DbfCharacterFieldDef(DbfFieldDef):
         Return value is a ``value`` argument with stripped right spaces.
 
         """
-        return value.rstrip(b" ").decode(locale.getpreferredencoding())
+        return value.decode(locale.getpreferredencoding()).rstrip(" ")
 
     def encodeValue(self, value):
         """Return raw data string encoded from a ``value``."""
-        return str(value)[:self.length].ljust(self.length)
+        value = str(value).encode(locale.getpreferredencoding())
+        return value[:self.length].ljust(self.length)
 
 
 class DbfNumericFieldDef(DbfFieldDef):

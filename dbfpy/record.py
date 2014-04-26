@@ -85,6 +85,7 @@ class DbfRecord(object):
     position = property(lambda self: self.dbf.header.headerLength + \
         self.index * self.dbf.header.recordLength)
 
+    @classmethod
     def rawFromStream(cls, dbf, index):
         """Return raw record contents read from the stream.
 
@@ -104,8 +105,8 @@ class DbfRecord(object):
         dbf.stream.seek(dbf.header.headerLength +
             index * dbf.header.recordLength)
         return dbf.stream.read(dbf.header.recordLength)
-    rawFromStream = classmethod(rawFromStream)
 
+    @classmethod
     def fromStream(cls, dbf, index):
         """Return a record read from the stream.
 
@@ -120,8 +121,8 @@ class DbfRecord(object):
 
         """
         return cls.fromString(dbf, cls.rawFromStream(dbf, index), index)
-    fromStream = classmethod(fromStream)
 
+    @classmethod
     def fromString(cls, dbf, string, index=None):
         """Return record read from the string object.
 
@@ -139,7 +140,6 @@ class DbfRecord(object):
         """
         return cls(dbf, index, string[0]=="*",
             [_fd.decodeFromRecord(string) for _fd in dbf.header.fields])
-    fromString = classmethod(fromString)
 
     ## object representation
 
@@ -219,10 +219,13 @@ class DbfRecord(object):
 
     def toString(self):
         """Return string packed record values."""
-        return "".join([" *"[self.deleted]] + [
-            _def.encodeValue(_dat)
-            for (_def, _dat) in zip(self.dbf.header.fields, self.fieldData)
-        ]).encode(locale.getpreferredencoding())
+        return b"".join(
+            [(b'*', b' ')[self.deleted]] +
+            [_def.encodeValue(_dat)
+                for (_def, _dat)
+                    in zip(self.dbf.header.fields, self.fieldData)
+            ]
+        )
 
     def asList(self):
         """Return a flat list of fields.

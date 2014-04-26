@@ -269,7 +269,7 @@ Version (signature): 0x%02x
         stream.write(b'\x0D')   # cr at end of all hdr data
         _pos = stream.tell()
         if _pos < self.headerLength:
-            stream.write("\0" * (self.headerLength - _pos))
+            stream.write(b"\x00" * (self.headerLength - _pos))
         self.changed = False
 
     def toString(self):
