@@ -244,7 +244,7 @@ class DbfRecord(object):
             # integer index of the field
             return self.fieldData[key]
         # assuming string field name
-        return self.fieldData[self.dbf.indexOfFieldName(key)]
+        return self.fieldData[self.dbf.header.indexOfFieldName(key)]
 
     def __setitem__(self, key, value):
         """Set field value by integer index of the field or string name."""
@@ -252,6 +252,6 @@ class DbfRecord(object):
             # integer index of the field
             return self.fieldData[key]
         # assuming string field name
-        self.fieldData[self.dbf.indexOfFieldName(key)] = value
+        self.fieldData[self.dbf.header.indexOfFieldName(key)] = value
 
 # vim: et sts=4 sw=4 :

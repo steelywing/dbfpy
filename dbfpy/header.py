@@ -170,6 +170,14 @@ class DbfHeader(object):
 
         """)
 
+    def indexOfFieldName(self, name):
+        """Index of field named ``name``."""
+        for index, field in enumerate(self.fields):
+            if field.name == name:
+                return index
+        else:
+            raise ValueError('Field not found: {0}'.format(name))
+
     ## object representation
 
     def __repr__(self):

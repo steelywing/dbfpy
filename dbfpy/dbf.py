@@ -110,12 +110,14 @@ class Dbf(object):
             # a stream
             self.name = getattr(f, "name", "")
             self.stream = f
+        
         if new:
             # if this is a new table, header will be empty
             self.header = self.HeaderClass()
         else:
             # or instantiated using stream
             self.header = self.HeaderClass.fromStream(self.stream)
+        
         self.ignoreErrors = ignoreErrors
         self._new = bool(new)
         self._changed = False
@@ -130,25 +132,40 @@ class Dbf(object):
 
     ## properties
 
-    closed = property(lambda self: self.stream.closed)
-    recordCount = property(lambda self: self.header.recordCount)
-    fieldNames = property(
-        lambda self: [_fld.name for _fld in self.header.fields])
-    fieldDefs = property(lambda self: self.header.fields)
-    changed = property(lambda self: self._changed or self.header.changed)
-
-    def ignoreErrors(self, value):
-        """Update `ignoreErrors` flag on the header object and self"""
-        self.header.ignoreErrors = self._ignore_errors = bool(value)
-    ignoreErrors = property(
-        lambda self: self._ignore_errors,
-        ignoreErrors,
-        doc="""Error processing mode for DBF field value conversion
+    @property
+    def closed(self):
+        return self.stream.closed
+    
+    @property
+    def recordCount(self):
+        return self.header.recordCount
+    
+    @property
+    def fieldNames(self):
+        return [field.name for field in self.header.fields]
+    
+    @property
+    def fieldDefs(self):
+        return self.header.fields
+    
+    @property
+    def changed(self):
+        return self._changed or self.header.changed
+    
+    @property
+    def ignoreErrors(self):
+        """Error processing mode for DBF field value conversion
 
         if set, failing field value conversion will return
         ``INVALID_VALUE`` instead of raising conversion error.
 
-        """)
+        """
+        return self._ignore_errors
+        
+    @ignoreErrors.setter
+    def ignoreErrors(self, value):
+        """Update `ignoreErrors` flag on the header object and self"""
+        self.header.ignoreErrors = self._ignore_errors = bool(value)
 
     ## protected methods
 
@@ -188,18 +205,10 @@ class Dbf(object):
             self.header.setCurrentDate()
             self.header.write(self.stream)
             self.stream.flush()
-            if self.memo is not None:
+            # flush if memo is not None
+            if hasattr(self.memo, 'flush'):
                 self.memo.flush()
             self._changed = False
-
-    def indexOfFieldName(self, name):
-        """Index of field named ``name``."""
-        # FIXME: move this to header class
-        for index, field in enumerate(self.header.fields):
-            if field.name == name:
-                return index
-        else:
-            raise ValueError('Field not found: {0}'.format(name))
 
     def newRecord(self):
         """Return new record, which belong to this table."""

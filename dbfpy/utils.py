@@ -48,7 +48,7 @@ def getDate(date=None):
 
     """
     if date is None:
-        # use current value
+        # use current date
         return datetime.date.today()
     if isinstance(date, datetime.date):
         return date
