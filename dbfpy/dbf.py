@@ -56,16 +56,9 @@ class Dbf(object):
         docs and examples needed (dont' forget to tell
         about problems adding new fields on the fly)
 
-    Implementation notes:
-        ``_new`` field is used to indicate whether this is
-        a new data table. `addField` could be used only for
-        the new tables! If at least one record was appended
-        to the table it's structure couldn't be changed.
-
     """
 
-    __slots__ = ("name", "header", "stream", "memo",
-        "_changed", "_new", "_ignore_errors")
+    __slots__ = ("name", "header", "stream", "memo", "_ignore_errors")
 
     HeaderClass = header.DbfHeader
     RecordClass = record.DbfRecord
@@ -119,8 +112,6 @@ class Dbf(object):
             self.header = self.HeaderClass.fromStream(self.stream)
         
         self.ignoreErrors = ignoreErrors
-        self._new = bool(new)
-        self._changed = False
         if memoFile:
             self.memo = memo.MemoFile(memoFile, readOnly=readOnly, new=new)
         elif self.header.hasMemoField:
@@ -147,10 +138,6 @@ class Dbf(object):
     @property
     def fieldDefs(self):
         return self.header.fields
-    
-    @property
-    def changed(self):
-        return self._changed or self.header.changed
     
     @property
     def ignoreErrors(self):
@@ -196,19 +183,16 @@ class Dbf(object):
     ## iterface methods
 
     def close(self):
-        self.flush()
         self.stream.close()
 
     def flush(self):
         """Flush data to the associated stream."""
-        if self.changed:
-            self.header.setCurrentDate()
-            self.header.write(self.stream)
-            self.stream.flush()
-            # flush if memo is not None
-            if hasattr(self.memo, 'flush'):
-                self.memo.flush()
-            self._changed = False
+        self.header.setCurrentDate()
+        self.header.write(self.stream)
+        self.stream.flush()
+        # flush if memo is not None
+        if hasattr(self.memo, 'flush'):
+            self.memo.flush()
 
     def newRecord(self):
         """Return new record, which belong to this table."""
@@ -219,8 +203,6 @@ class Dbf(object):
         record.index = self.header.recordCount
         record._write()
         self.header.recordCount += 1
-        self._changed = True
-        self._new = False
 
     def addField(self, *defs):
         """Add field definitions.
@@ -228,16 +210,16 @@ class Dbf(object):
         For more information see `header.DbfHeader.addField`.
 
         """
-        if self._new:
-            self.header.addField(*defs)
-            if self.header.hasMemoField:
-                if not self.memo:
-                    self.memo = memo.MemoFile(
-                        memo.MemoFile.memoFileName(self.name), new=True)
-                self.header.setMemoFile(self.memo)
-        else:
+        if self.recordCount > 0:
             raise TypeError("At least one record was added, "
                 "structure can't be changed")
+        
+        self.header.addField(*defs)
+        if self.header.hasMemoField:
+            if not self.memo:
+                self.memo = memo.MemoFile(
+                    memo.MemoFile.memoFileName(self.name), new=True)
+            self.header.setMemoFile(self.memo)
 
     ## 'magic' methods (representation and sequence interface)
 
@@ -258,14 +240,12 @@ class Dbf(object):
         """Write `DbfRecord` instance to the stream."""
         record.index = self._fixIndex(index)
         record._write()
-        self._changed = True
-        self._new = False
 
     #def __del__(self):
     #    """Flush stream upon deletion of the object."""
     #    self.flush()
 
-if (__name__=='__main__'):
+if (__name__ == '__main__'):
     pass
 
 # vim: set et sw=4 sts=4 :

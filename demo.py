@@ -10,20 +10,21 @@ db.addField(
     ("BIRTHDATE", "D"),
 )
 
-for (_n, _s, _i, _b) in (
+for (name, surname, initials, birthdate) in (
     ("John", "Miller", "YC", (1981, 1, 2)),
     ("Andy", "Larkin", "AL", (1982, 3, 4)),
     ("Bill", "Clinth", "", (1983, 5, 6)),
     ("Bobb", "McNail", "", (1984, 7, 8)),
 ):
-    _rec = db.newRecord()
-    _rec["NAME"] = _n
-    _rec["SURNAME"] = _s
-    _rec["INITIALS"] = _i
-    _rec["BIRTHDATE"] = _b
-    _rec.store()
+    rec = db.newRecord()
+    rec["NAME"] = name
+    rec["SURNAME"] = surname
+    rec["INITIALS"] = initials
+    rec["BIRTHDATE"] = birthdate
+    rec.store()
 
 print(repr(db), '\n\n')
+db.flush()
 db.close()
 
 ## read DBF
