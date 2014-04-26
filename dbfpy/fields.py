@@ -2,7 +2,7 @@
 
 TODO:
   - make memos work
-  - change all encode to return binary string
+  - use DBF encoding to encode
 """
 """History (most recent first):
 14-dec-2010 [als]   support reading and writing Memo fields;
@@ -261,12 +261,12 @@ class DbfNumericFieldDef(DbfFieldDef):
         _rv = ("%*.*f" % (self.length, self.decimalCount, value))
         if len(_rv) > self.length:
             _ppos = _rv.find(".")
-            if 0 <= _ppos <= self.length:
-                _rv = _rv[:self.length]
-            else:
+            if not (0 <= _ppos <= self.length):
                 raise ValueError("[%s] Numeric overflow: %s (field width: %i)"
                     % (self.name, _rv, self.length))
-        return _rv
+            
+            _rv = _rv[:self.length]
+        return _rv.encode(locale.getpreferredencoding())
 
 class DbfFloatFieldDef(DbfNumericFieldDef):
     """Definition of the float field - same as numeric."""
@@ -288,6 +288,7 @@ class DbfIntegerFieldDef(DbfFieldDef):
         """Return string containing encoded ``value``."""
         return struct.pack("<i", int(value))
 
+        
 class DbfCurrencyFieldDef(DbfFieldDef):
     """Definition of the currency field."""
 
@@ -303,6 +304,7 @@ class DbfCurrencyFieldDef(DbfFieldDef):
         """Return string containing encoded ``value``."""
         return struct.pack("<q", round(value * 10000))
 
+        
 class DbfLogicalFieldDef(DbfFieldDef):
     """Definition of the logical field."""
 
@@ -330,17 +332,18 @@ class DbfLogicalFieldDef(DbfFieldDef):
 
         """
         if value is True:
-            return "T"
-        if value == -1:
-            return "?"
-        return "F"
+            return b"T"
+        elif value == -1:
+            return b"?"
+        else:
+            return b"F"
 
 
 class DbfMemoFieldDef(DbfFieldDef):
     """Definition of the memo field."""
 
     typeCode = "M"
-    defaultValue = "\0" * 4
+    defaultValue = b"\x00" * 4
     defaultLength = 4
     # MemoFile instance.  Must be set before reading or writing to the field.
     file = None
@@ -401,9 +404,9 @@ class DbfDateFieldDef(DbfFieldDef):
 
         """
         if value:
-            return utils.getDate(value).strftime("%Y%m%d")
+            return utils.getDate(value).strftime("%Y%m%d").encode(locale.getpreferredencoding())
         else:
-            return " " * self.length
+            return b" " * self.length
 
 
 class DbfDateTimeFieldDef(DbfFieldDef):
@@ -440,7 +443,9 @@ class DbfDateTimeFieldDef(DbfFieldDef):
             _rv = struct.pack("<2I", value.toordinal() + self.JDN_GDN_DIFF,
                 (value.hour * 3600 + value.minute * 60 + value.second) * 1000)
         else:
-            _rv = "\0" * self.length
+            _rv = b"\x00" * self.length
+        
+        _rv = _rv.encode(locale.getpreferredencoding())
         assert len(_rv) == self.length
         return _rv
 

@@ -50,13 +50,16 @@ class DbfHeader(object):
 
     """
 
-    __slots__ = ("signature", "fields", "lastUpdate", "recordLength",
-        "recordCount", "headerLength", "changed", "_ignore_errors")
+    __slots__ = (
+        "signature", "fields", "lastUpdate", "recordLength", "recordCount", 
+        "headerLength", "changed", "flag", "codePage", "_ignore_errors"
+    )
 
     ## instance construction and initialization methods
 
     def __init__(self, fields=None, headerLength=0, recordLength=0,
-        recordCount=0, signature=0x03, lastUpdate=None, ignoreErrors=False,
+        recordCount=0, signature=0x03, lastUpdate=None, flag=0,
+        codePage=0, ignoreErrors=False,
     ):
         """Initialize instance.
 
@@ -83,14 +86,13 @@ class DbfHeader(object):
 
         """
         self.signature = signature
-        if fields is None:
-            self.fields = []
-        else:
-            self.fields = list(fields)
+        self.fields = [] if fields is None else list(fields)
         self.lastUpdate = getDate(lastUpdate)
         self.recordLength = recordLength
         self.headerLength = headerLength
         self.recordCount = recordCount
+        self.flag = flag
+        self.codePage = codePage
         self.ignoreErrors = ignoreErrors
         # XXX: I'm not sure this is safe to
         # initialize `self.changed` in this way
@@ -104,20 +106,31 @@ class DbfHeader(object):
     @classmethod
     def fromStream(cls, stream):
         """Return header object from the stream."""
+        
+        # FoxPro DBF file structure
+        # http://msdn.microsoft.com/en-us/library/aa975386%28v=vs.71%29.aspx
+        
         stream.seek(0)
         _data = stream.read(32)
-        (_cnt, _hdrLen, _recLen) = struct.unpack("<I2H", _data[4:12])
+        if _data is None or len(_data) < 32:
+            raise ValueError('header data less than 32 bytes')
+        
+        (_cnt, _hdrLen, _recLen) = struct.unpack("<I 2H", _data[4:12])
         #reserved = _data[12:32]
-        _year = _data[1]
+        _year, _month, _day = _data[1:4]
         if _year < 80:
             # dBase II started at 1980.  It is quite unlikely
             # that actual last update date is before that year.
             _year += 2000
         else:
             _year += 1900
+        
+        _tableFlag = _data[28]
+        _codePage = _data[29]
+        
         ## create header object
         _obj = cls(None, _hdrLen, _recLen, _cnt, _data[0],
-            (_year, _data[2], _data[3]))
+            (_year, _month, _day), _tableFlag, _codePage)
         ## append field definitions
         # position 0 is for the deletion flag
         _pos = 1
@@ -131,10 +144,17 @@ class DbfHeader(object):
         return _obj
     
     ## properties
-
-    year = property(lambda self: self.lastUpdate.year)
-    month = property(lambda self: self.lastUpdate.month)
-    day = property(lambda self: self.lastUpdate.day)
+    @property
+    def year(self):
+        return self.lastUpdate.year
+    
+    @property
+    def month(self):
+        return self.lastUpdate.month
+    
+    @property
+    def day(self):
+        return self.lastUpdate.day
 
     @property
     def hasMemoField(self):
@@ -163,14 +183,16 @@ class DbfHeader(object):
 
     def __repr__(self):
         _rv = """\
-Version (signature): 0x%02x
+Version (signature): 0x%02X
         Last update: %s
       Header length: %d
       Record length: %d
        Record count: %d
+         Table Flag: 0x%02X
+          Code Page: 0x%02X
  FieldName Type Len Dec
 """ % (self.signature, self.lastUpdate, self.headerLength,
-    self.recordLength, self.recordCount)
+    self.recordLength, self.recordCount, self.flag, self.codePage)
         _rv += "\n".join(
             ["%10s %4s %3s %3s" % _fld.fieldInfo() for _fld in self.fields]
         )
@@ -233,8 +255,9 @@ Version (signature): 0x%02x
         # http://www.dbf2002.com/dbf-file-format.html
         # If memo is attached, will use 0x30 for Visual FoxPro file,
         # 0x83 for dBASE III+.
-        if _has_memo \
-        and (self.signature not in (0x30, 0x83, 0x8B, 0xCB, 0xE5, 0xF5)):
+        if (_has_memo and
+            self.signature not in (0x30, 0x83, 0x8B, 0xCB, 0xE5, 0xF5)
+        ):
             if memo.is_fpt:
                 self.signature = 0x30
             else:
@@ -276,18 +299,27 @@ Version (signature): 0x%02x
         """Returned 32 chars length string with encoded header."""
         # FIXME: should keep flag and code page marks read from file
         if self.hasMemoField:
-            _flag = b"\x02"
+            self.flag |= 0x02
         else:
-            _flag = b"\00"
-        _codepage = b"\00"
-        return struct.pack("<4BI2H",
+            self.flag &= ~0x02
+        
+        _header = struct.pack(
+            "<4B I 2H 16s 2B 2s",
             self.signature,
             self.year - 1900,
             self.month,
             self.day,
             self.recordCount,
             self.headerLength,
-            self.recordLength) + b"\x00" * 16 + _flag + _codepage + b"\x00\x00"
+            self.recordLength,
+            b"\x00" * 16,
+            self.flag,
+            self.codePage,
+            b"\x00" * 2
+        )
+        
+        assert len(_header) == 32
+        return _header
 
     def setCurrentDate(self):
         """Update ``self.lastUpdate`` field with current date value."""
