@@ -220,7 +220,7 @@ class DbfRecord(object):
     def toString(self):
         """Return string packed record values."""
         return b"".join(
-            [(b'*', b' ')[self.deleted]] +
+            [(b' ', b'*')[self.deleted]] +
             [_def.encodeValue(_dat)
                 for (_def, _dat)
                     in zip(self.dbf.header.fields, self.fieldData)
