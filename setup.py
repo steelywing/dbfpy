@@ -16,8 +16,10 @@ Many different extensions have been used; dbfpy can read and write
 only simple DBF-files.
 """
 
+
 def run():
-    setup(name="dbfpy",
+    setup(
+        name="dbfpy",
         version="2.2.5",
         description="Access .DBF (dBase) files from python",
         url="http://dbfpy.sourceforge.net/",
@@ -27,7 +29,7 @@ def run():
         packages=["dbfpy"],
         long_description=DESCRIPTION,
         download_url=
-            "http://sourceforge.net/project/showfiles.php?group_id=140566",
+        "http://sourceforge.net/project/showfiles.php?group_id=140566",
         platforms=["OS Independent"],
         classifiers=[
             "Development Status :: 5 - Production/Stable",
@@ -39,6 +41,7 @@ def run():
             "Topic :: Software Development :: Libraries :: Python Modules",
         ],
     )
+
 
 if __name__ == "__main__":
     run()

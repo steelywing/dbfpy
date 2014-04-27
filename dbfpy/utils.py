@@ -3,6 +3,7 @@
 TODO:
   - allow strings in getDateTime routine;
 """
+import sys
 
 __version__ = "$Revision: 1.4 $"[11:-2]
 __date__ = "$Date: 2007/02/11 08:57:17 $"[7:-2]
@@ -11,7 +12,7 @@ import datetime
 import time
 
 
-def unzfill(str):
+def unzfill(string):
     """Return a string without ASCII NULs.
 
     This function searchers for the first NUL (ASCII 0) occurance
@@ -19,12 +20,12 @@ def unzfill(str):
 
     """
     try:
-        return str[:str.index(b'\x00')]
+        return string[:string.index(b'\x00')]
     except ValueError:
-        return str
+        return string
 
 
-def getDate(date=None):
+def get_gate(date=None):
     """Return `datetime.date` instance.
 
     Type of the ``date`` argument could be one of the following:
@@ -70,7 +71,7 @@ def getDate(date=None):
     return datetime.date.fromtimestamp(date.ticks())
 
 
-def getDateTime(value=None):
+def get_date_time(value=None):
     """Return `datetime.datetime` instance.
 
     Type of the ``value`` argument could be one of the following:

@@ -8,15 +8,15 @@ TODO:
 __version__ = "$Revision: 1.15 $"[11:-2]
 __date__ = "$Date: 2010/12/14 11:04:49 $"[7:-2]
 
-__all__ = ["lookupFor",] # field classes added at the end of the module
+__all__ = ["lookup_for", ]  # field classes added at the end of the module
 
 import datetime
 import struct
-import sys
 import locale
 
 from .memo import MemoData
 from . import utils
+
 
 ## abstract definitions
 
@@ -38,12 +38,14 @@ class DbfFieldDef(object):
 
     """
 
-    __slots__ = ("name", "length", "decimalCount",
-        "start", "end", "ignoreErrors")
+    __slots__ = (
+        "name", "length", "decimal_count",
+        "start", "end", "ignore_errors"
+    )
 
     # length of the field, None in case of variable-length field,
     # or a number if this field is a fixed-length field
-    defaultLength = None
+    default_length = None
 
     # field type. for more information about fields types visit
     # `http://www.clicketyclick.dk/databases/xbase/format/data_types.html`
@@ -51,51 +53,55 @@ class DbfFieldDef(object):
     typeCode = None
 
     # default value for the field. this field must be
-    # overriden in child classes
-    defaultValue = None
+    # overridden in child classes
+    default_value = None
 
     # True if field data is kept in the Memo file
     isMemo = property(lambda self: self.typeCode in "GMP")
 
-    def __init__(self, name, length=None, decimalCount=None,
-        start=None, stop=None, ignoreErrors=False,
+    def __init__(
+            self, name, length=None, decimal_count=None,
+            start=None, end=None, ignore_errors=False,
     ):
         """Initialize instance."""
         assert self.typeCode is not None, "Type code must be overriden"
-        assert self.defaultValue is not None, "Default value must be overriden"
+        assert self.default_value is not None, "Default value must be overriden"
         ## fix arguments
-        if len(name) >10:
+        if len(name) > 10:
             raise ValueError("Field name \"%s\" is too long" % name)
         name = str(name).upper()
-        if self.defaultLength is None:
+        if self.default_length is None:
             if length is None:
                 raise ValueError("[%s] Length isn't specified" % name)
             length = int(length)
             if length <= 0:
                 raise ValueError("[%s] Length must be a positive integer"
-                    % name)
+                                 % name)
         else:
-            length = self.defaultLength
-        if decimalCount is None:
-            decimalCount = 0
+            length = self.default_length
+        if decimal_count is None:
+            decimal_count = 0
         ## set fields
         self.name = name
         # FIXME: validate length according to the specification at
         # http://www.clicketyclick.dk/databases/xbase/format/data_types.html
         self.length = length
-        self.decimalCount = decimalCount
-        self.ignoreErrors = ignoreErrors
+        self.decimal_count = decimal_count
+        self.ignore_errors = ignore_errors
         self.start = start
-        self.end = stop
+        self.end = end
 
-    def __cmp__(self, other):
-        return cmp(self.name, str(other).upper())
+    def __eq__(self, other):
+        return self.name == str(other.name)
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def __hash__(self):
         return hash(self.name)
-    
+
     @classmethod
-    def fromString(cls, string, start, ignoreErrors=False):
+    def from_string(cls, string, start, ignore_errors=False):
         """Decode dbf field definition from the string data.
 
         Arguments:
@@ -104,17 +110,23 @@ class DbfFieldDef(object):
                 the string must be 32 bytes.
             start:
                 position in the database file.
-            ignoreErrors:
+            ignore_errors:
                 initial error processing mode for the new field (boolean)
 
         """
         assert len(string) == 32
-        _length = string[16]
-        return cls(utils.unzfill(string)[:11].decode(locale.getpreferredencoding()),
-            _length, string[17], start, start + _length,
-            ignoreErrors=ignoreErrors)
+        length = string[16]
+        return cls(
+            # name
+            utils.unzfill(string)[:11].decode(locale.getpreferredencoding()),
+            length=length,
+            decimal_count=string[17],
+            start=start,
+            end=start + length,
+            ignore_errors=ignore_errors
+        )
 
-    def toString(self):
+    def to_bytes(self):
         """Return encoded field definition.
 
         Return:
@@ -123,48 +135,44 @@ class DbfFieldDef(object):
 
         """
         encoding = locale.getpreferredencoding()
-        
-        if sys.version_info < (2, 4):
-            # earlier versions did not support padding character
-            _name = self.name[:11].encode(encoding) + b"\x00" * (11 - len(self.name))
-        else:
-            _name = self.name.encode(encoding).ljust(11, b'\x00')
+        name = self.name.encode(encoding).ljust(11, b'\x00')
+
         return (
-            _name +
+            name +
             self.typeCode.encode(encoding) +
             struct.pack("<L", self.start) +
             chr(self.length).encode(encoding) +
-            chr(self.decimalCount).encode(encoding) +
+            chr(self.decimal_count).encode(encoding) +
             b'\x00' * 14
         )
 
-    def __repr__(self):
-        return "%-10s %1s %3d %3d" % self.fieldInfo()
+    def __str__(self):
+        return "%-10s %1s %3d %3d" % self.field_info()
 
-    def fieldInfo(self):
+    def field_info(self):
         """Return field information.
 
         Return:
             Return value is a (name, type, length, decimals) tuple.
 
         """
-        return (self.name, self.typeCode, self.length, self.decimalCount)
+        return self.name, self.typeCode, self.length, self.decimal_count
 
-    def rawFromRecord(self, record):
+    def raw_from_record(self, record):
         """Return a "raw" field value from the record string."""
         return record[self.start:self.end]
 
-    def decodeFromRecord(self, record):
+    def decode_from_record(self, record):
         """Return decoded field value from the record string."""
         try:
-            return self.decodeValue(self.rawFromRecord(record))
+            return self.decode_value(self.raw_from_record(record))
         except:
-            if self.ignoreErrors:
+            if self.ignore_errors:
                 return utils.INVALID_VALUE
             else:
                 raise
 
-    def decodeValue(self, value):
+    def decode_value(self, value):
         """Return decoded value from string value.
 
         This method shouldn't be used publicly. It's called from the
@@ -174,12 +182,13 @@ class DbfFieldDef(object):
         """
         raise NotImplementedError
 
-    def encodeValue(self, value):
+    def encode_value(self, value):
         """Return str object containing encoded field value.
 
         This is an abstract method and it must be overriden in child classes.
         """
         raise NotImplementedError
+
 
 ## real classes
 
@@ -187,9 +196,9 @@ class DbfCharacterFieldDef(DbfFieldDef):
     """Definition of the character field."""
 
     typeCode = "C"
-    defaultValue = ""
+    default_value = ""
 
-    def decodeValue(self, value):
+    def decode_value(self, value):
         """Return string object.
 
         Return value is a ``value`` argument with stripped right spaces.
@@ -197,7 +206,7 @@ class DbfCharacterFieldDef(DbfFieldDef):
         """
         return value.decode(locale.getpreferredencoding()).rstrip(" ")
 
-    def encodeValue(self, value):
+    def encode_value(self, value):
         """Return raw data string encoded from a ``value``."""
         value = str(value).encode(locale.getpreferredencoding())
         return value[:self.length].ljust(self.length)
@@ -211,9 +220,9 @@ class DbfNumericFieldDef(DbfFieldDef):
     # `defaultValue` instead of a generic method as it was implemented
     # previously -- it's ok with all types except number, cuz
     # if self.decimalCount is 0, we should return 0 and 0.0 otherwise.
-    defaultValue = 0
+    default_value = 0
 
-    def decodeValue(self, value):
+    def decode_value(self, value):
         """Return a number decoded from ``value``.
 
         If decimals is zero, value will be decoded as an integer;
@@ -233,63 +242,65 @@ class DbfNumericFieldDef(DbfFieldDef):
         else:
             return 0
 
-    def encodeValue(self, value):
+    def encode_value(self, value):
         """Return string containing encoded ``value``."""
-        _rv = ("%*.*f" % (self.length, self.decimalCount, value))
+        _rv = ("%*.*f" % (self.length, self.decimal_count, value))
         if len(_rv) > self.length:
             _ppos = _rv.find(".")
             if not (0 <= _ppos <= self.length):
                 raise ValueError("[%s] Numeric overflow: %s (field width: %i)"
-                    % (self.name, _rv, self.length))
-            
+                                 % (self.name, _rv, self.length))
+
             _rv = _rv[:self.length]
         return _rv.encode(locale.getpreferredencoding())
+
 
 class DbfFloatFieldDef(DbfNumericFieldDef):
     """Definition of the float field - same as numeric."""
 
     typeCode = "F"
 
+
 class DbfIntegerFieldDef(DbfFieldDef):
     """Definition of the integer field."""
 
     typeCode = "I"
-    defaultLength = 4
-    defaultValue = 0
+    default_length = 4
+    default_value = 0
 
-    def decodeValue(self, value):
+    def decode_value(self, value):
         """Return an integer number decoded from ``value``."""
         return struct.unpack("<i", value)[0]
 
-    def encodeValue(self, value):
+    def encode_value(self, value):
         """Return string containing encoded ``value``."""
         return struct.pack("<i", int(value))
 
-        
+
 class DbfCurrencyFieldDef(DbfFieldDef):
     """Definition of the currency field."""
 
     typeCode = "Y"
-    defaultLength = 8
-    defaultValue = 0.0
+    default_length = 8
+    default_value = 0.0
 
-    def decodeValue(self, value):
+    def decode_value(self, value):
         """Return float number decoded from ``value``."""
         return struct.unpack("<q", value)[0] / 10000.
 
-    def encodeValue(self, value):
+    def encode_value(self, value):
         """Return string containing encoded ``value``."""
         return struct.pack("<q", round(value * 10000))
 
-        
+
 class DbfLogicalFieldDef(DbfFieldDef):
     """Definition of the logical field."""
 
     typeCode = "L"
-    defaultValue = -1
-    defaultLength = 1
+    default_value = -1
+    default_length = 1
 
-    def decodeValue(self, value):
+    def decode_value(self, value):
         """Return True, False or -1 decoded from ``value``."""
         # Note: value always is 1-char string
         if value == b"?":
@@ -300,7 +311,7 @@ class DbfLogicalFieldDef(DbfFieldDef):
             return True
         raise ValueError("[%s] Invalid logical value %r" % (self.name, value))
 
-    def encodeValue(self, value):
+    def encode_value(self, value):
         """Return a character from the "TF?" set.
 
         Return:
@@ -320,14 +331,14 @@ class DbfMemoFieldDef(DbfFieldDef):
     """Definition of the memo field."""
 
     typeCode = "M"
-    defaultValue = b"\x00" * 4
-    defaultLength = 4
+    default_value = b"\x00" * 4
+    default_length = 4
     # MemoFile instance.  Must be set before reading or writing to the field.
     file = None
     # MemoData type for strings written to the memo file
     memoType = MemoData.TYPE_MEMO
 
-    def decodeValue(self, value):
+    def decode_value(self, value):
         """Return MemoData instance containing field data."""
         _block = struct.unpack("<L", value)[0]
         if _block:
@@ -335,7 +346,7 @@ class DbfMemoFieldDef(DbfFieldDef):
         else:
             return MemoData("", self.memoType)
 
-    def encodeValue(self, value):
+    def encode_value(self, value):
         """Return raw data string encoded from a ``value``.
 
         Note: this is an internal method.
@@ -343,9 +354,9 @@ class DbfMemoFieldDef(DbfFieldDef):
         """
         if value:
             return struct.pack("<L",
-                self.file.write(MemoData(value, self.memoType)))
+                               self.file.write(MemoData(value, self.memoType)))
         else:
-            return self.defaultValue
+            return self.default_value
 
 
 class DbfGeneralFieldDef(DbfFieldDef):
@@ -359,18 +370,22 @@ class DbfDateFieldDef(DbfFieldDef):
     """Definition of the date field."""
 
     typeCode = "D"
-    defaultValue = utils.classproperty(lambda cls: datetime.date.today())
-    # "yyyymmdd" gives us 8 characters
-    defaultLength = 8
 
-    def decodeValue(self, value):
+    @utils.classproperty
+    def default_value(cls):
+        return datetime.date.today()
+
+    # "yyyymmdd" gives us 8 characters
+    default_length = 8
+
+    def decode_value(self, value):
         """Return a ``datetime.date`` instance decoded from ``value``."""
         if value.strip():
-            return utils.getDate(value)
+            return utils.get_gate(value)
         else:
             return None
 
-    def encodeValue(self, value):
+    def encode_value(self, value):
         """Return a string-encoded value.
 
         ``value`` argument should be a value suitable for the
@@ -381,7 +396,7 @@ class DbfDateFieldDef(DbfFieldDef):
 
         """
         if value:
-            return utils.getDate(value).strftime("%Y%m%d").encode(locale.getpreferredencoding())
+            return utils.get_gate(value).strftime("%Y%m%d").encode(locale.getpreferredencoding())
         else:
             return b" " * self.length
 
@@ -393,13 +408,17 @@ class DbfDateTimeFieldDef(DbfFieldDef):
     # and GDN (Gregorian Day Number). note, that GDN < JDN
     JDN_GDN_DIFF = 1721425
     typeCode = "T"
-    defaultValue = utils.classproperty(lambda cls: datetime.datetime.now())
+
+    @utils.classproperty
+    def default_value(cls):
+        return datetime.datetime.now()
+
     # two 32-bits integers representing JDN and amount of
     # milliseconds respectively gives us 8 bytes.
     # note, that values must be encoded in LE byteorder.
-    defaultLength = 8
+    default_length = 8
 
-    def decodeValue(self, value):
+    def decode_value(self, value):
         """Return a `datetime.datetime` instance."""
         assert len(value) == self.length
         # LE byteorder
@@ -412,16 +431,16 @@ class DbfDateTimeFieldDef(DbfFieldDef):
             _rv = None
         return _rv
 
-    def encodeValue(self, value):
+    def encode_value(self, value):
         """Return a string-encoded ``value``."""
         if value:
-            value = utils.getDateTime(value)
+            value = utils.get_date_time(value)
             # LE byteorder
             _rv = struct.pack("<2I", value.toordinal() + self.JDN_GDN_DIFF,
-                (value.hour * 3600 + value.minute * 60 + value.second) * 1000)
+                              (value.hour * 3600 + value.minute * 60 + value.second) * 1000)
         else:
             _rv = b"\x00" * self.length
-        
+
         _rv = _rv.encode(locale.getpreferredencoding())
         assert len(_rv) == self.length
         return _rv
@@ -429,25 +448,26 @@ class DbfDateTimeFieldDef(DbfFieldDef):
 
 _fieldsRegistry = {}
 
-def registerField(fieldCls):
+
+def register_field(field_class):
     """Register field definition class.
 
-    ``fieldCls`` should be subclass of the `DbfFieldDef`.
+    ``field_class`` should be subclass of the `DbfFieldDef`.
 
     Use `lookupFor` to retrieve field definition class
     by the type code.
 
     """
-    assert fieldCls.typeCode is not None, "Type code isn't defined"
-    # XXX: use fieldCls.typeCode.upper()? in case of any decign
+    assert field_class.typeCode is not None, "Type code isn't defined"
+    # XXX: use field_class.typeCode.upper()? in case of any decign
     # don't forget to look to the same comment in ``lookupFor`` method
-    _fieldsRegistry[fieldCls.typeCode] = fieldCls
+    _fieldsRegistry[field_class.typeCode] = field_class
 
 
-def lookupFor(typeCode):
+def lookup_for(type_code):
     """Return field definition class for the given type code.
 
-    ``typeCode`` must be a single character. That type should be
+    ``type_code`` must be a single character. That type should be
     previously registered.
 
     Use `registerField` to register new field class.
@@ -456,17 +476,17 @@ def lookupFor(typeCode):
         Return value is a subclass of the `DbfFieldDef`.
 
     """
-    # XXX: use typeCode.upper()? in case of any decign don't
+    # XXX: use type_code.upper()? in case of any decign don't
     # forget to look to the same comment in ``registerField``
-    return _fieldsRegistry[typeCode]
+    return _fieldsRegistry[type_code]
 
 ## register generic types
 
 for (_name, _val) in list(globals().items()):
-    if isinstance(_val, type) and issubclass(_val, DbfFieldDef) \
-    and (_name != "DbfFieldDef"):
+    if (isinstance(_val, type) and
+            DbfFieldDef in _val.__bases__):
         __all__.append(_name)
-        registerField(_val)
+        register_field(_val)
 del _name, _val
 
 # vim: et sts=4 sw=4 :

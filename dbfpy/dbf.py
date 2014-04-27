@@ -49,6 +49,7 @@ from . import memo
 from . import record
 from . import utils
 
+
 class Dbf(object):
     """DBF accessor.
 
@@ -66,8 +67,8 @@ class Dbf(object):
 
     ## initialization and creation helpers
 
-    def __init__(self, f, readOnly=False, new=False, ignoreErrors=False,
-                 memoFile=None):
+    def __init__(self, f, read_only=False, new=False, ignore_errors=False,
+                 memo_file=None):
         """Initialize instance.
 
         Arguments:
@@ -98,49 +99,49 @@ class Dbf(object):
                 self.stream = open(f, "w+b")
             else:
                 # table file must exist
-                self.stream = open(f, ("r+b", "rb")[bool(readOnly)])
+                self.stream = open(f, ("r+b", "rb")[bool(read_only)])
         else:
             # a stream
             self.name = getattr(f, "name", "")
             self.stream = f
-        
+
         if new:
             # if this is a new table, header will be empty
             self.header = self.HeaderClass()
         else:
             # or instantiated using stream
-            self.header = self.HeaderClass.fromStream(self.stream)
-        
-        self.ignoreErrors = ignoreErrors
-        if memoFile:
-            self.memo = memo.MemoFile(memoFile, readOnly=readOnly, new=new)
-        elif self.header.hasMemoField:
+            self.header = self.HeaderClass.from_stream(self.stream)
+
+        self.ignore_errors = ignore_errors
+        if memo_file:
+            self.memo = memo.MemoFile(memo_file, readOnly=read_only, new=new)
+        elif self.header.has_memo:
             self.memo = memo.MemoFile(memo.MemoFile.memoFileName(self.name),
-                readOnly=readOnly, new=new)
+                                      readOnly=read_only, new=new)
         else:
             self.memo = None
-        self.header.setMemoFile(self.memo)
+        self.header.set_memo_file(self.memo)
 
     ## properties
 
     @property
     def closed(self):
         return self.stream.closed
-    
+
     @property
-    def recordCount(self):
-        return self.header.recordCount
-    
+    def record_count(self):
+        return self.header.record_count
+
     @property
-    def fieldNames(self):
+    def field_names(self):
         return [field.name for field in self.header.fields]
-    
+
     @property
-    def fieldDefs(self):
+    def fields(self):
         return self.header.fields
-    
+
     @property
-    def ignoreErrors(self):
+    def ignore_errors(self):
         """Error processing mode for DBF field value conversion
 
         if set, failing field value conversion will return
@@ -148,15 +149,15 @@ class Dbf(object):
 
         """
         return self._ignore_errors
-        
-    @ignoreErrors.setter
-    def ignoreErrors(self, value):
+
+    @ignore_errors.setter
+    def ignore_errors(self, value):
         """Update `ignoreErrors` flag on the header object and self"""
-        self.header.ignoreErrors = self._ignore_errors = bool(value)
+        self.header.ignore_errors = self._ignore_errors = bool(value)
 
     ## protected methods
 
-    def _fixIndex(self, index):
+    def _fix_index(self, index):
         """Return fixed index.
 
         This method fails if index isn't a numeric object
@@ -180,7 +181,7 @@ class Dbf(object):
             raise IndexError("Record index out of range")
         return index
 
-    ## iterface methods
+    ## interface methods
 
     def close(self):
         self.flush()
@@ -194,58 +195,80 @@ class Dbf(object):
         if hasattr(self.memo, 'flush'):
             self.memo.flush()
 
-    def newRecord(self):
+    def new_record(self):
         """Return new record, which belong to this table."""
         return self.RecordClass(self)
 
+    def write_record(self, record):
+        """Write data to the dbf stream.
+
+        Note:
+            This isn't a public method, it's better to
+            use 'store' instead publically.
+            Be design ``_write`` method should be called
+            only from the `Dbf` instance.
+        """
+        if not self.stream.writable():
+            return
+        record.validate_index(False)
+        self.stream.seek(record.position)
+        self.stream.write(record.to_bytes())
+        # why we should check this condition for each record?
+        if record.index == len(self):
+            # this is the last record,
+            # we should write SUB (ASCII 26)
+            self.stream.write(b"\x1A")
+
+
     def append(self, record):
         """Append ``record`` to the database."""
-        record.index = self.header.recordCount
-        record._write()
-        self.header.recordCount += 1
+        record.index = self.header.record_count
+        self.write_record(record)
+        self.header.record_count += 1
 
-    def addField(self, *defs):
+    def add_field(self, *defs):
         """Add field definitions.
 
         For more information see `header.DbfHeader.addField`.
 
         """
-        if self.recordCount > 0:
+        if self.record_count > 0:
             raise TypeError("At least one record was added, "
-                "structure can't be changed")
-        
-        self.header.addField(*defs)
-        if self.header.hasMemoField:
+                            "structure can't be changed")
+
+        self.header.add_field(*defs)
+        if self.header.has_memo:
             if not self.memo:
                 self.memo = memo.MemoFile(
                     memo.MemoFile.memoFileName(self.name), new=True)
-            self.header.setMemoFile(self.memo)
+            self.header.set_memo_file(self.memo)
 
     ## 'magic' methods (representation and sequence interface)
 
-    def __repr__(self):
-        return "Dbf stream '%s'\n" % self.stream + repr(self.header)
+    def __str__(self):
+        return "Dbf stream '%s'\n" % self.stream + str(self.header)
 
     def __len__(self):
         """Return number of records."""
-        return self.recordCount
+        return self.record_count
 
     def __getitem__(self, index):
         """Return `DbfRecord` instance."""
         if isinstance(index, slice):
-            return [self[_recno] for _recno in range(self.recordCount)[index]]
-        return self.RecordClass.fromStream(self, self._fixIndex(index))
+            return [self[_recno] for _recno in range(self.record_count)[index]]
+        return self.RecordClass.from_stream(self, self._fix_index(index))
 
     def __setitem__(self, index, record):
         """Write `DbfRecord` instance to the stream."""
-        record.index = self._fixIndex(index)
-        record._write()
+        record.index = self._fix_index(index)
+        self.write_record(record)
 
-    #def __del__(self):
-    #    """Flush stream upon deletion of the object."""
-    #    self.flush()
+        #def __del__(self):
+        #    """Flush stream upon deletion of the object."""
+        #    self.flush()
 
-if (__name__ == '__main__'):
+
+if __name__ == '__main__':
     pass
 
 # vim: set et sw=4 sts=4 :

@@ -7,10 +7,9 @@ __date__ = "$Date: 2007/02/11 09:05:49 $"[7:-2]
 
 __all__ = ["DbfRecord"]
 
-
-
 from . import utils
 import locale
+
 
 class DbfRecord(object):
     """DBF record.
@@ -42,12 +41,12 @@ class DbfRecord(object):
 
     """
 
-    __slots__ = "dbf", "index", "deleted", "fieldData"
+    __slots__ = "dbf", "index", "deleted", "field_data"
 
     ## creation and initialization
 
     def __init__(self, dbf, index=None, deleted=False, data=None):
-        """Instance initialiation.
+        """Instance initialization.
 
         Arguments:
             dbf:
@@ -68,18 +67,18 @@ class DbfRecord(object):
         self.index = index
         self.deleted = deleted
         if data is None:
-            self.fieldData = [_fd.defaultValue for _fd in dbf.header.fields]
+            self.field_data = [_fd.default_value for _fd in dbf.header.fields]
         else:
-            self.fieldData = list(data)
+            self.field_data = list(data)
 
     # XXX: validate self.index before calculating position?
     @property
     def position(self):
-        return (self.dbf.header.headerLength + 
-            self.index * self.dbf.header.recordLength)
+        return (self.dbf.header.header_length +
+                self.index * self.dbf.header.record_length)
 
     @classmethod
-    def rawFromStream(cls, dbf, index):
+    def raw_from_stream(cls, dbf, index):
         """Return raw record contents read from the stream.
 
         Arguments:
@@ -95,12 +94,12 @@ class DbfRecord(object):
         # XXX: may be write smth assuming, that current stream
         # position is the required one? it could save some
         # time required to calculate where to seek in the file
-        dbf.stream.seek(dbf.header.headerLength +
-            index * dbf.header.recordLength)
-        return dbf.stream.read(dbf.header.recordLength)
+        dbf.stream.seek(dbf.header.header_length +
+                        index * dbf.header.record_length)
+        return dbf.stream.read(dbf.header.record_length)
 
     @classmethod
-    def fromStream(cls, dbf, index):
+    def from_stream(cls, dbf, index):
         """Return a record read from the stream.
 
         Arguments:
@@ -113,10 +112,10 @@ class DbfRecord(object):
         Return value is an instance of the current class.
 
         """
-        return cls.fromString(dbf, cls.rawFromStream(dbf, index), index)
+        return cls.from_string(dbf, cls.raw_from_stream(dbf, index), index)
 
     @classmethod
-    def fromString(cls, dbf, string, index=None):
+    def from_string(cls, dbf, string, index=None):
         """Return record read from the string object.
 
         Arguments:
@@ -131,66 +130,39 @@ class DbfRecord(object):
         Return value is an instance of the current class.
 
         """
-        return cls(dbf, index, string[0]=="*",
-            [_fd.decodeFromRecord(string) for _fd in dbf.header.fields])
+        return cls(dbf, index, string[0] == "*",
+                   [_fd.decode_from_record(string) for _fd in dbf.header.fields])
 
-    ## object representation
-
-    def __repr__(self):
-        _template = "%%%ds: %%s (%%s)" % max([len(_fld)
-            for _fld in self.dbf.fieldNames])
+    def __str__(self):
+        _template = "%%%ds: %%s (%%s)" % max(len(_fld)
+                                             for _fld in self.dbf.field_names)
         _rv = []
-        for _fld in self.dbf.fieldNames:
+        for _fld in self.dbf.field_names:
             _val = self[_fld]
             if _val is utils.INVALID_VALUE:
                 _rv.append(_template %
-                    (_fld, "None", "value cannot be decoded"))
+                           (_fld, "None", "value cannot be decoded"))
             else:
                 _rv.append(_template % (_fld, _val, type(_val)))
         return "\n".join(_rv)
 
-    ## protected methods
-
-    def _write(self):
-        """Write data to the dbf stream.
-
-        Note:
-            This isn't a public method, it's better to
-            use 'store' instead publically.
-            Be design ``_write`` method should be called
-            only from the `Dbf` instance.
-
-
-        """
-        if not self.dbf.stream.writable():
-            return
-        self._validateIndex(False)
-        self.dbf.stream.seek(self.position)
-        self.dbf.stream.write(self.toString())
-        # FIXME: may be move this write somewhere else?
-        # why we should check this condition for each record?
-        if self.index == len(self.dbf):
-            # this is the last record,
-            # we should write SUB (ASCII 26)
-            self.dbf.stream.write(b"\x1A")
-
     ## utility methods
 
-    def _validateIndex(self, allowUndefined=True, checkRange=False):
+    def validate_index(self, allow_undefined=True, check_range=False):
         """Valid ``self.index`` value.
 
-        If ``allowUndefined`` argument is True functions does nothing
+        If ``allow_undefined`` argument is True functions does nothing
         in case of ``self.index`` pointing to None object.
 
         """
         if self.index is None:
-            if not allowUndefined:
+            if not allow_undefined:
                 raise ValueError("Index is undefined")
         elif self.index < 0:
             raise ValueError("Index can't be negative (%s)" % self.index)
-        elif checkRange and self.index <= self.dbf.header.recordCount:
+        elif check_range and self.index <= self.dbf.header.recordCount:
             raise ValueError("There are only %d records in the DBF" %
-                self.dbf.header.recordCount)
+                             self.dbf.header.recordCount)
 
     ## interface methods
 
@@ -201,7 +173,7 @@ class DbfRecord(object):
         records of the DBF this records belongs to; or replaced otherwise.
 
         """
-        self._validateIndex()
+        self.validate_index()
         if self.index is None:
             self.index = len(self.dbf)
             self.dbf.append(self)
@@ -212,17 +184,17 @@ class DbfRecord(object):
         """Mark method as deleted."""
         self.deleted = True
 
-    def toString(self):
+    def to_bytes(self):
         """Return string packed record values."""
         return b"".join(
             [(b' ', b'*')[self.deleted]] +
-            [_def.encodeValue(_dat)
-                for (_def, _dat)
-                    in zip(self.dbf.header.fields, self.fieldData)
+            [
+                _def.encode_value(_dat)
+                for (_def, _dat) in zip(self.dbf.header.fields, self.field_data)
             ]
         )
 
-    def asList(self):
+    def as_list(self):
         """Return a flat list of fields.
 
         Note:
@@ -230,9 +202,9 @@ class DbfRecord(object):
             real values stored in this object.
 
         """
-        return self.fieldData[:]
+        return self.field_data[:]
 
-    def asDict(self):
+    def as_dict(self):
         """Return a dictionary of fields.
 
         Note:
@@ -240,22 +212,22 @@ class DbfRecord(object):
             real values stored in this object.
 
         """
-        return dict([_i for _i in zip(self.dbf.fieldNames, self.fieldData)])
+        return dict([_i for _i in zip(self.dbf.field_names, self.field_data)])
 
     def __getitem__(self, key):
         """Return value by field name or field index."""
         if isinstance(key, int):
             # integer index of the field
-            return self.fieldData[key]
+            return self.field_data[key]
         # assuming string field name
-        return self.fieldData[self.dbf.header.indexOfFieldName(key)]
+        return self.field_data[self.dbf.header.index_of_field_name(key)]
 
     def __setitem__(self, key, value):
         """Set field value by integer index of the field or string name."""
         if isinstance(key, int):
             # integer index of the field
-            return self.fieldData[key]
+            return self.field_data[key]
         # assuming string field name
-        self.fieldData[self.dbf.header.indexOfFieldName(key)] = value
+        self.field_data[self.dbf.header.index_of_field_name(key)] = value
 
 # vim: et sts=4 sw=4 :

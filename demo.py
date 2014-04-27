@@ -3,7 +3,7 @@ from dbfpy import dbf
 ## create DBF
 
 db = dbf.Dbf('new.dbf', new=True)
-db.addField(
+db.add_field(
     ("NAME", "C", 15),
     ("SURNAME", "C", 25),
     ("INITIALS", "C", 10),
@@ -16,15 +16,14 @@ for (name, surname, initials, birthdate) in (
     ("Bill", "Clinth", "", (1983, 5, 6)),
     ("Bobb", "McNail", "", (1984, 7, 8)),
 ):
-    rec = db.newRecord()
+    rec = db.new_record()
     rec["NAME"] = name
     rec["SURNAME"] = surname
     rec["INITIALS"] = initials
     rec["BIRTHDATE"] = birthdate
     rec.store()
 
-print(repr(db), '\n\n')
-db.flush()
+print(db, '\n\n')
 db.close()
 
 ## read DBF
@@ -32,5 +31,5 @@ db.close()
 db = dbf.Dbf('table.dbf', True)
 print(repr(db), '\n')
 for record in db:
-    print(repr(record), '\n')
+    print(record, '\n')
 db.close()
