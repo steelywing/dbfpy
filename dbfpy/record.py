@@ -160,9 +160,9 @@ class DbfRecord(object):
                 raise ValueError("Index is undefined")
         elif self.index < 0:
             raise ValueError("Index can't be negative (%s)" % self.index)
-        elif check_range and self.index <= self.dbf.header.recordCount:
+        elif check_range and self.index <= self.dbf.header.record_count:
             raise ValueError("There are only %d records in the DBF" %
-                             self.dbf.header.recordCount)
+                             self.dbf.header.record_count)
 
     ## interface methods
 

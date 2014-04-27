@@ -99,7 +99,7 @@ class MemoFile(object):
                 self.blocksize = 512
 
     @staticmethod
-    def memoFileName(name, isFpt=True):
+    def memo_file_name(name, isFpt=True):
         """Return Memo file name for given DBF file name
 
         Arguments:

@@ -50,21 +50,21 @@ class DbfFieldDef(object):
     # field type. for more information about fields types visit
     # `http://www.clicketyclick.dk/databases/xbase/format/data_types.html`
     # must be overriden in child classes
-    typeCode = None
+    type_code = None
 
     # default value for the field. this field must be
     # overridden in child classes
     default_value = None
 
     # True if field data is kept in the Memo file
-    isMemo = property(lambda self: self.typeCode in "GMP")
+    isMemo = property(lambda self: self.type_code in "GMP")
 
     def __init__(
             self, name, length=None, decimal_count=None,
             start=None, end=None, ignore_errors=False,
     ):
         """Initialize instance."""
-        assert self.typeCode is not None, "Type code must be overriden"
+        assert self.type_code is not None, "Type code must be overriden"
         assert self.default_value is not None, "Default value must be overriden"
         ## fix arguments
         if len(name) > 10:
@@ -134,16 +134,14 @@ class DbfFieldDef(object):
             definition of this field.
 
         """
-        encoding = locale.getpreferredencoding()
-        name = self.name.encode(encoding).ljust(11, b'\x00')
-
-        return (
-            name +
-            self.typeCode.encode(encoding) +
-            struct.pack("<L", self.start) +
-            chr(self.length).encode(encoding) +
-            chr(self.decimal_count).encode(encoding) +
-            b'\x00' * 14
+        return struct.pack(
+            '< 11s B <L 2B 14s',
+            self.name.encode(locale.getpreferredencoding()),
+            self.type_code,
+            struct.pack("<L", self.start),
+            self.length,
+            self.decimal_count,
+            b'\x00' * 14,
         )
 
     def __str__(self):
@@ -156,7 +154,7 @@ class DbfFieldDef(object):
             Return value is a (name, type, length, decimals) tuple.
 
         """
-        return self.name, self.typeCode, self.length, self.decimal_count
+        return self.name, self.type_code, self.length, self.decimal_count
 
     def raw_from_record(self, record):
         """Return a "raw" field value from the record string."""
@@ -195,7 +193,7 @@ class DbfFieldDef(object):
 class DbfCharacterFieldDef(DbfFieldDef):
     """Definition of the character field."""
 
-    typeCode = "C"
+    type_code = "C"
     default_value = ""
 
     def decode_value(self, value):
@@ -215,7 +213,7 @@ class DbfCharacterFieldDef(DbfFieldDef):
 class DbfNumericFieldDef(DbfFieldDef):
     """Definition of the numeric field."""
 
-    typeCode = "N"
+    type_code = "N"
     # XXX: now I'm not sure it was a good idea to make a class field
     # `defaultValue` instead of a generic method as it was implemented
     # previously -- it's ok with all types except number, cuz
@@ -258,13 +256,13 @@ class DbfNumericFieldDef(DbfFieldDef):
 class DbfFloatFieldDef(DbfNumericFieldDef):
     """Definition of the float field - same as numeric."""
 
-    typeCode = "F"
+    type_code = "F"
 
 
 class DbfIntegerFieldDef(DbfFieldDef):
     """Definition of the integer field."""
 
-    typeCode = "I"
+    type_code = "I"
     default_length = 4
     default_value = 0
 
@@ -280,7 +278,7 @@ class DbfIntegerFieldDef(DbfFieldDef):
 class DbfCurrencyFieldDef(DbfFieldDef):
     """Definition of the currency field."""
 
-    typeCode = "Y"
+    type_code = "Y"
     default_length = 8
     default_value = 0.0
 
@@ -296,7 +294,7 @@ class DbfCurrencyFieldDef(DbfFieldDef):
 class DbfLogicalFieldDef(DbfFieldDef):
     """Definition of the logical field."""
 
-    typeCode = "L"
+    type_code = "L"
     default_value = -1
     default_length = 1
 
@@ -330,7 +328,7 @@ class DbfLogicalFieldDef(DbfFieldDef):
 class DbfMemoFieldDef(DbfFieldDef):
     """Definition of the memo field."""
 
-    typeCode = "M"
+    type_code = "M"
     default_value = b"\x00" * 4
     default_length = 4
     # MemoFile instance.  Must be set before reading or writing to the field.
@@ -353,8 +351,7 @@ class DbfMemoFieldDef(DbfFieldDef):
 
         """
         if value:
-            return struct.pack("<L",
-                               self.file.write(MemoData(value, self.memoType)))
+            return struct.pack("<L", self.file.write(MemoData(value, self.memoType)))
         else:
             return self.default_value
 
@@ -362,14 +359,14 @@ class DbfMemoFieldDef(DbfFieldDef):
 class DbfGeneralFieldDef(DbfFieldDef):
     """Definition of the general (OLE object) field."""
 
-    typeCode = "G"
+    type_code = "G"
     memoType = MemoData.TYPE_OBJECT
 
 
 class DbfDateFieldDef(DbfFieldDef):
     """Definition of the date field."""
 
-    typeCode = "D"
+    type_code = "D"
 
     @utils.classproperty
     def default_value(cls):
@@ -407,7 +404,7 @@ class DbfDateTimeFieldDef(DbfFieldDef):
     # a difference between JDN (Julian Day Number)
     # and GDN (Gregorian Day Number). note, that GDN < JDN
     JDN_GDN_DIFF = 1721425
-    typeCode = "T"
+    type_code = "T"
 
     @utils.classproperty
     def default_value(cls):
@@ -448,7 +445,6 @@ class DbfDateTimeFieldDef(DbfFieldDef):
 
 _fieldsRegistry = {}
 
-
 def register_field(field_class):
     """Register field definition class.
 
@@ -458,10 +454,10 @@ def register_field(field_class):
     by the type code.
 
     """
-    assert field_class.typeCode is not None, "Type code isn't defined"
+    assert field_class.type_code is not None, "Type code isn't defined"
     # XXX: use field_class.typeCode.upper()? in case of any decign
     # don't forget to look to the same comment in ``lookupFor`` method
-    _fieldsRegistry[field_class.typeCode] = field_class
+    _fieldsRegistry[field_class.type_code.upper()] = field_class
 
 
 def lookup_for(type_code):

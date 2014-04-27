@@ -67,14 +67,14 @@ class Dbf(object):
 
     ## initialization and creation helpers
 
-    def __init__(self, f, read_only=False, new=False, ignore_errors=False,
+    def __init__(self, file, read_only=False, new=False, ignore_errors=False,
                  memo_file=None):
         """Initialize instance.
 
         Arguments:
-            f:
+            file:
                 Filename or file-like object.
-            readOnly:
+            read_only:
                 if ``f`` argument is a string file will
                 be opend in read-only mode; in other cases
                 this argument is ignored. This argument is ignored
@@ -82,28 +82,28 @@ class Dbf(object):
             new:
                 True if new data table must be created. Assume
                 data table exists if this argument is False.
-            ignoreErrors:
+            ignore_errors:
                 if set, failing field value conversion will return
                 ``INVALID_VALUE`` instead of raising conversion error.
-            memoFile:
+            memo_file:
                 optional path to the FPT (memo fields) file.
                 Default is generated from the DBF file name.
 
         """
-        if isinstance(f, str):
+        if isinstance(file, str):
             # a filename
-            self.name = f
+            self.name = file
             if new:
                 # new table (table file must be
                 # created or opened and truncated)
-                self.stream = open(f, "w+b")
+                self.stream = open(file, "w+b")
             else:
                 # table file must exist
-                self.stream = open(f, ("r+b", "rb")[bool(read_only)])
+                self.stream = open(file, ("r+b", "rb")[bool(read_only)])
         else:
             # a stream
-            self.name = getattr(f, "name", "")
-            self.stream = f
+            self.name = getattr(file, "name", "")
+            self.stream = file
 
         if new:
             # if this is a new table, header will be empty
@@ -116,7 +116,7 @@ class Dbf(object):
         if memo_file:
             self.memo = memo.MemoFile(memo_file, readOnly=read_only, new=new)
         elif self.header.has_memo:
-            self.memo = memo.MemoFile(memo.MemoFile.memoFileName(self.name),
+            self.memo = memo.MemoFile(memo.MemoFile.memo_file_name(self.name),
                                       readOnly=read_only, new=new)
         else:
             self.memo = None
@@ -152,7 +152,7 @@ class Dbf(object):
 
     @ignore_errors.setter
     def ignore_errors(self, value):
-        """Update `ignoreErrors` flag on the header object and self"""
+        """Update `ignore_errors` flag on the header object and self"""
         self.header.ignore_errors = self._ignore_errors = bool(value)
 
     ## protected methods
@@ -200,14 +200,7 @@ class Dbf(object):
         return self.RecordClass(self)
 
     def write_record(self, record):
-        """Write data to the dbf stream.
-
-        Note:
-            This isn't a public method, it's better to
-            use 'store' instead publically.
-            Be design ``_write`` method should be called
-            only from the `Dbf` instance.
-        """
+        """Write data to the dbf stream."""
         if not self.stream.writable():
             return
         record.validate_index(False)
@@ -218,7 +211,6 @@ class Dbf(object):
             # this is the last record,
             # we should write SUB (ASCII 26)
             self.stream.write(b"\x1A")
-
 
     def append(self, record):
         """Append ``record`` to the database."""
@@ -240,7 +232,7 @@ class Dbf(object):
         if self.header.has_memo:
             if not self.memo:
                 self.memo = memo.MemoFile(
-                    memo.MemoFile.memoFileName(self.name), new=True)
+                    memo.MemoFile.memo_file_name(self.name), new=True)
             self.header.set_memo_file(self.memo)
 
     ## 'magic' methods (representation and sequence interface)
@@ -263,12 +255,8 @@ class Dbf(object):
         record.index = self._fix_index(index)
         self.write_record(record)
 
-        #def __del__(self):
+    #def __del__(self):
         #    """Flush stream upon deletion of the object."""
         #    self.flush()
-
-
-if __name__ == '__main__':
-    pass
 
 # vim: set et sw=4 sts=4 :

@@ -102,37 +102,37 @@ class DbfHeader(object):
         # http://msdn.microsoft.com/en-us/library/aa975386%28v=vs.71%29.aspx
 
         stream.seek(0)
-        _data = stream.read(32)
-        if _data is None or len(_data) < 32:
+        data = stream.read(32)
+        if data is None or len(data) < 32:
             raise ValueError('header data less than 32 bytes')
 
-        (_cnt, _hdrLen, _recLen) = struct.unpack("<I 2H", _data[4:12])
-        #reserved = _data[12:32]
-        _year, _month, _day = _data[1:4]
-        if _year < 80:
+        (count, header_length, record_length) = struct.unpack("< I 2H", data[4:12])
+        # reserved = data[12:32]
+        year, month, day = data[1:4]
+        if year < 80:
             # dBase II started at 1980.  It is quite unlikely
             # that actual last update date is before that year.
-            _year += 2000
+            year += 2000
         else:
-            _year += 1900
+            year += 1900
 
-        _tableFlag = _data[28]
-        _codePage = _data[29]
+        flag = data[28]
+        code_page = data[29]
 
         ## create header object
-        _obj = cls(None, _hdrLen, _recLen, _cnt, _data[0],
-                   (_year, _month, _day), _tableFlag, _codePage)
+        header = cls(None, header_length, record_length, count, data[0],
+                   (year, month, day), flag, code_page)
         ## append field definitions
         # position 0 is for the deletion flag
         _pos = 1
-        _data = stream.read(1)
-        while _data[0] != 0x0D:
-            _data += stream.read(31)
-            _fld = fields.lookup_for(chr(_data[11])).from_string(_data, _pos)
-            _obj._add_field(_fld)
+        data = stream.read(1)
+        while data[0] != 0x0D:
+            data += stream.read(31)
+            _fld = fields.lookup_for(chr(data[11])).from_string(data, _pos)
+            header._add_field(_fld)
             _pos = _fld.end
-            _data = stream.read(1)
-        return _obj
+            data = stream.read(1)
+        return header
 
     ## properties
     @property
@@ -167,7 +167,7 @@ class DbfHeader(object):
 
     @ignore_errors.setter
     def ignore_errors(self, value):
-        """Update `ignoreErrors` flag on self and all fields"""
+        """Update `ignore_errors` flag on self and all fields"""
         value = bool(value)
         self._ignore_errors = value
         for _field in self.fields:
@@ -179,24 +179,26 @@ class DbfHeader(object):
             if field.name == name:
                 return index
         else:
-            raise ValueError('Field not found: {0}'.format(name))
+            raise IndexError('Field not found: {0}'.format(name))
 
     def __str__(self):
         _rv = textwrap.dedent("""
-            Version (signature): 0x%02X
-                    Last update: %s
-                  Header length: %d
-                  Record length: %d
-                   Record count: %d
-                     Table Flag: 0x%02X
-                      Code Page: 0x%02X
+            Signature:      0x%02X
+            Last update:    %s
+            Header length:  %d
+            Record length:  %d
+            Record count:   %d
+            Table Flag:     0x%02X
+            Code Page:      0x%02X
 
-             FieldName Type Len Dec
             """ % (self.signature, self.last_update, self.header_length,
                    self.record_length, self.record_count, self.flag, self.code_page)
         )
         _rv += "\n".join([
-            "%10s %4s %3s %3s" % field.field_info() for field in self.fields
+            "%10s %4s %3s %3s" % tuple(row) for row in (
+                ['FieldName Type Len Dec'.split()] +
+                [field.field_info() for field in self.fields]
+            )
         ])
         return _rv
 
@@ -315,7 +317,7 @@ class DbfHeader(object):
             self.flag &= ~0x02
 
         _header = struct.pack(
-            "<4B I 2H 16s 2B 2s",
+            "< 4B I 2H 16s 2B 2s",
             self.signature,
             self.year - 1900,
             self.month,
