@@ -61,7 +61,7 @@ class DbfFieldDef(object):
 
     def __init__(
             self, name, length=None, decimal_count=None,
-            start=None, end=None, ignore_errors=False,
+            start=None, ignore_errors=False,
     ):
         """Initialize instance."""
         assert self.type_code is not None, "Type code must be overriden"
@@ -89,7 +89,6 @@ class DbfFieldDef(object):
         self.decimal_count = decimal_count
         self.ignore_errors = ignore_errors
         self.start = start
-        self.end = end
 
     def __eq__(self, other):
         return self.name == str(other.name)
@@ -115,14 +114,12 @@ class DbfFieldDef(object):
 
         """
         assert len(string) == 32
-        length = string[16]
         return cls(
             # name
             utils.unzfill(string)[:11].decode(locale.getpreferredencoding()),
-            length=length,
+            length=string[16],
             decimal_count=string[17],
             start=start,
-            end=start + length,
             ignore_errors=ignore_errors
         )
 
@@ -135,10 +132,10 @@ class DbfFieldDef(object):
 
         """
         return struct.pack(
-            '< 11s B <L 2B 14s',
+            '< 11s B L 2B 14s',
             self.name.encode(locale.getpreferredencoding()),
-            self.type_code,
-            struct.pack("<L", self.start),
+            ord(self.type_code),
+            self.start,
             self.length,
             self.decimal_count,
             b'\x00' * 14,
@@ -158,7 +155,7 @@ class DbfFieldDef(object):
 
     def raw_from_record(self, record):
         """Return a "raw" field value from the record string."""
-        return record[self.start:self.end]
+        return record[self.start:self.start + self.length]
 
     def decode_from_record(self, record):
         """Return decoded field value from the record string."""
@@ -455,8 +452,6 @@ def register_field(field_class):
 
     """
     assert field_class.type_code is not None, "Type code isn't defined"
-    # XXX: use field_class.typeCode.upper()? in case of any decign
-    # don't forget to look to the same comment in ``lookupFor`` method
     _fieldsRegistry[field_class.type_code.upper()] = field_class
 
 
@@ -472,9 +467,7 @@ def lookup_for(type_code):
         Return value is a subclass of the `DbfFieldDef`.
 
     """
-    # XXX: use type_code.upper()? in case of any decign don't
-    # forget to look to the same comment in ``registerField``
-    return _fieldsRegistry[type_code]
+    return _fieldsRegistry[type_code.upper()]
 
 ## register generic types
 

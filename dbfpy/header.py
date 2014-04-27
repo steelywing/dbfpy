@@ -100,7 +100,6 @@ class DbfHeader(object):
 
         # FoxPro DBF file structure
         # http://msdn.microsoft.com/en-us/library/aa975386%28v=vs.71%29.aspx
-
         stream.seek(0)
         data = stream.read(32)
         if data is None or len(data) < 32:
@@ -119,19 +118,20 @@ class DbfHeader(object):
         flag = data[28]
         code_page = data[29]
 
+        # TODO: check file size greater than record count
         ## create header object
         header = cls(None, header_length, record_length, count, data[0],
                    (year, month, day), flag, code_page)
         ## append field definitions
         # position 0 is for the deletion flag
         _pos = 1
-        data = stream.read(1)
-        while data[0] != 0x0D:
-            data += stream.read(31)
-            _fld = fields.lookup_for(chr(data[11])).from_string(data, _pos)
-            header._add_field(_fld)
-            _pos = _fld.end
-            data = stream.read(1)
+        while True:
+            data = stream.read(32)
+            if len(data) < 32 or data[0] == 0x0D:
+                break
+            field = fields.lookup_for(chr(data[11])).from_string(data, _pos)
+            header._add_field(field)
+            _pos = field.start + field.length
         return header
 
     ## properties
