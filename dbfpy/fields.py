@@ -8,7 +8,7 @@ TODO:
 __version__ = "$Revision: 1.15 $"[11:-2]
 __date__ = "$Date: 2010/12/14 11:04:49 $"[7:-2]
 
-__all__ = ["field_class_of", ]  # field classes added at the end of the module
+__all__ = ["field_class_of", "DbfField"]  # field classes added at the end of the module
 
 import datetime
 import struct
@@ -92,9 +92,6 @@ class DbfField(object):
         self.ignore_errors = ignore_errors
         self.start = start
 
-    def __hash__(self):
-        return hash(self.name)
-
     @classmethod
     def from_bytes(cls, string, start, ignore_errors=False):
         """Decode dbf field definition from the string data.
@@ -137,6 +134,9 @@ class DbfField(object):
             b'\x00' * 14,
         )
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __str__(self):
         return "%-10s %1s %3d %3d" % self.field_info()
 
@@ -149,21 +149,7 @@ class DbfField(object):
         """
         return self.name, self.type_code, self.length, self.decimal_count
 
-    def raw_from_record(self, record):
-        """Return a "raw" field value from the record string."""
-        return record[self.start:self.start + self.length]
-
-    def decode_from_record(self, record):
-        """Return decoded field value from the record string."""
-        try:
-            return self.decode_value(self.raw_from_record(record))
-        except:
-            if self.ignore_errors:
-                return utils.INVALID_VALUE
-            else:
-                raise
-
-    def decode_value(self, value):
+    def decode(self, value):
         """Return decoded value from string value.
 
         This method shouldn't be used publicly. It's called from the
@@ -173,7 +159,7 @@ class DbfField(object):
         """
         raise NotImplementedError
 
-    def encode_value(self, value):
+    def encode(self, value):
         """Return str object containing encoded field value.
 
         This is an abstract method and it must be overriden in child classes.
@@ -189,7 +175,7 @@ class DbfCharacterField(DbfField):
     type_code = "C"
     default_value = ""
 
-    def decode_value(self, value):
+    def decode(self, value):
         """Return string object.
 
         Return value is a ``value`` argument with stripped right spaces.
@@ -197,7 +183,7 @@ class DbfCharacterField(DbfField):
         """
         return value.decode(locale.getpreferredencoding()).rstrip(" ")
 
-    def encode_value(self, value):
+    def encode(self, value):
         """Return raw data string encoded from a ``value``."""
         value = str(value).encode(locale.getpreferredencoding())
         return value[:self.length].ljust(self.length)
@@ -213,7 +199,7 @@ class DbfNumericField(DbfField):
     # if self.decimalCount is 0, we should return 0 and 0.0 otherwise.
     default_value = 0
 
-    def decode_value(self, value):
+    def decode(self, value):
         """Return a number decoded from ``value``.
 
         If decimals is zero, value will be decoded as an integer;
@@ -233,7 +219,7 @@ class DbfNumericField(DbfField):
         else:
             return 0
 
-    def encode_value(self, value):
+    def encode(self, value):
         """Return string containing encoded ``value``."""
         _rv = ("%*.*f" % (self.length, self.decimal_count, value))
         if len(_rv) > self.length:
@@ -259,11 +245,11 @@ class DbfIntegerField(DbfField):
     default_length = 4
     default_value = 0
 
-    def decode_value(self, value):
+    def decode(self, value):
         """Return an integer number decoded from ``value``."""
         return struct.unpack("<i", value)[0]
 
-    def encode_value(self, value):
+    def encode(self, value):
         """Return string containing encoded ``value``."""
         return struct.pack("<i", int(value))
 
@@ -275,11 +261,11 @@ class DbfCurrencyField(DbfField):
     default_length = 8
     default_value = 0.0
 
-    def decode_value(self, value):
+    def decode(self, value):
         """Return float number decoded from ``value``."""
         return struct.unpack("<q", value)[0] / 10000.
 
-    def encode_value(self, value):
+    def encode(self, value):
         """Return string containing encoded ``value``."""
         return struct.pack("<q", round(value * 10000))
 
@@ -291,7 +277,7 @@ class DbfLogicalField(DbfField):
     default_value = -1
     default_length = 1
 
-    def decode_value(self, value):
+    def decode(self, value):
         """Return True, False or -1 decoded from ``value``."""
         # Note: value always is 1-char string
         if value == b"?":
@@ -302,7 +288,7 @@ class DbfLogicalField(DbfField):
             return True
         raise ValueError("[%s] Invalid logical value %r" % (self.name, value))
 
-    def encode_value(self, value):
+    def encode(self, value):
         """Return a character from the "TF?" set.
 
         Return:
@@ -329,7 +315,7 @@ class DbfMemoField(DbfField):
     # MemoData type for strings written to the memo file
     memoType = MemoData.TYPE_MEMO
 
-    def decode_value(self, value):
+    def decode(self, value):
         """Return MemoData instance containing field data."""
         _block = struct.unpack("<L", value)[0]
         if _block:
@@ -337,7 +323,7 @@ class DbfMemoField(DbfField):
         else:
             return MemoData("", self.memoType)
 
-    def encode_value(self, value):
+    def encode(self, value):
         """Return raw data string encoded from a ``value``.
 
         Note: this is an internal method.
@@ -368,14 +354,14 @@ class DbfDateField(DbfField):
     # "yyyymmdd" gives us 8 characters
     default_length = 8
 
-    def decode_value(self, value):
+    def decode(self, value):
         """Return a ``datetime.date`` instance decoded from ``value``."""
         if value.strip():
             return utils.get_gate(value)
         else:
             return None
 
-    def encode_value(self, value):
+    def encode(self, value):
         """Return a string-encoded value.
 
         ``value`` argument should be a value suitable for the
@@ -408,7 +394,7 @@ class DbfDateTimeField(DbfField):
     # note, that values must be encoded in LE byteorder.
     default_length = 8
 
-    def decode_value(self, value):
+    def decode(self, value):
         """Return a `datetime.datetime` instance."""
         assert len(value) == self.length
         # LE byteorder
@@ -421,7 +407,7 @@ class DbfDateTimeField(DbfField):
             _rv = None
         return _rv
 
-    def encode_value(self, value):
+    def encode(self, value):
         """Return a string-encoded ``value``."""
         if value:
             value = utils.get_date_time(value)

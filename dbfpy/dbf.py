@@ -108,6 +108,9 @@ class Dbf(object):
             # or instantiated using stream
             self.header.from_stream(self.stream)
 
+        # for IDE inspection
+        self._ignore_errors = False
+
         self.ignore_errors = ignore_errors
         if memo_file:
             self.memo = memo.MemoFile(memo_file, readOnly=read_only, new=new)

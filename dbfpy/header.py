@@ -136,7 +136,7 @@ class DbfHeader(object):
             pos = field.start + field.length
 
         # is real record length == record length field in file ?
-        if self.record_length != record_length:
+        if self.record_length != record_length and not self.ignore_errors:
             raise ValueError(
                 "DBF file corrupt\n"
                 "real record length (%d) doesn't match record length in file (%d)" %
@@ -307,9 +307,9 @@ class DbfHeader(object):
         stream.write(self.to_bytes())
         stream.write(b"".join([_fld.to_bytes() for _fld in self.fields]))
         stream.write(b'\x0D')  # cr at end of all hdr data
-        _pos = stream.tell()
-        if _pos < self.header_length:
-            stream.write(b"\x00" * (self.header_length - _pos))
+        pos = stream.tell()
+        if pos < self.header_length:
+            stream.write(b"\x00" * (self.header_length - pos))
         self._changed = False
 
     def to_bytes(self):
@@ -319,7 +319,7 @@ class DbfHeader(object):
         else:
             self.flag &= ~0x02
 
-        _header = struct.pack(
+        return struct.pack(
             "< 4B I 2H 16s 2B 2s",
             self.signature,
             self.year - 1900,
@@ -334,9 +334,6 @@ class DbfHeader(object):
             b"\x00" * 2
         )
 
-        assert len(_header) == 32
-        return _header
-
     def set_last_update(self, date=None):
         """Update ``self.lastUpdate`` field."""
         if date is None:
@@ -346,14 +343,16 @@ class DbfHeader(object):
     def __getitem__(self, item):
         """Return a field definition by numeric index or name string"""
         if isinstance(item, str):
-            _name = item.upper()
-            for _field in self.fields:
-                if _field.name == _name:
-                    return _field
+            name = item.upper()
+            for field in self.fields:
+                if field.name == name:
+                    return field
             else:
                 raise KeyError(item)
-        else:
+        elif isinstance(item, int):
             # item must be field index
             return self.fields[item]
+        else:
+            raise TypeError('unsupport index type ({0})'.format(type(item)))
 
 # vim: et sts=4 sw=4 :

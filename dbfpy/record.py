@@ -97,9 +97,23 @@ class DbfRecord(object):
 
         self._index = index
 
-    def from_bytes(self, string):
+    def decode(self, string):
         """Return record read from the string."""
-        self.fields = [field.decode_from_record(string) for field in self.header.fields]
+        try:
+            return [
+                field.decode(
+                    string[field.start:field.start + field.length]
+                ) for field in self.header.fields
+            ]
+        except:
+            if self.header.ignore_errors:
+                return utils.INVALID_VALUE
+            else:
+                raise
+
+    def from_bytes(self, string):
+        """Read record from the string."""
+        self.fields = self.decode(string)
 
     def from_stream(self, stream):
         """Read record from the stream."""
@@ -132,7 +146,7 @@ class DbfRecord(object):
         return b"".join(
             [(b' ', b'*')[self.deleted]] +
             [
-                _def.encode_value(_dat)
+                _def.encode(_dat)
                 for (_def, _dat) in zip(self.header.fields, self.fields)
             ]
         )
