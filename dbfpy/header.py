@@ -1,7 +1,7 @@
 """DBF header definition.
 
 TODO:
-  - test encoding
+  - test encoding (windows console can't print utf-8 characters)
 """
 
 __version__ = "$Revision: 1.7 $"[11:-2]

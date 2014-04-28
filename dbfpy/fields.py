@@ -2,7 +2,7 @@
 
 TODO:
   - make memos work
-  - test encode
+  - test encode (windows console can't print utf-8 characters)
 """
 
 __version__ = "$Revision: 1.15 $"[11:-2]
