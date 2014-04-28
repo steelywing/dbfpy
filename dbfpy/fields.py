@@ -2,7 +2,7 @@
 
 TODO:
   - make memos work
-  - use DBF encoding to encode
+  - test encode
 """
 
 __version__ = "$Revision: 1.15 $"[11:-2]
@@ -16,6 +16,7 @@ import locale
 
 from .memo import MemoData
 from . import utils
+from .code_page import CodePage
 
 
 ## abstract definitions
@@ -39,7 +40,7 @@ class DbfField(object):
     """
 
     __slots__ = (
-        "name", "length", "decimal_count",
+        "_code_page", "_name", "length", "decimal_count",
         "start", "end", "ignore_errors"
     )
 
@@ -56,34 +57,29 @@ class DbfField(object):
     # overridden in child classes
     default_value = None
 
-    # True if field data is kept in the Memo file
-    @property
-    def is_memo(self):
-        return self.type_code in "GMP"
-
     def __init__(
-            self, name, length=None, decimal_count=None,
-            start=None, ignore_errors=False,
+            self, name, length=None, decimal_count=0,
+            code_page=0, start=None, ignore_errors=False,
     ):
         """Initialize instance."""
-        assert self.type_code is not None, "Type code must be overriden"
-        assert self.default_value is not None, "Default value must be overriden"
+        assert self.type_code is not None, "Type code must be overridden"
+        assert self.default_value is not None, "Default value must be overridden"
+
         ## fix arguments
-        if len(name) > 10:
-            raise ValueError("Field name \"%s\" is too long" % name)
-        name = str(name).upper()
         if self.default_length is None:
             if length is None:
                 raise ValueError("[%s] Length isn't specified" % name)
             length = int(length)
             if length <= 0:
-                raise ValueError("[%s] Length must be a positive integer"
-                                 % name)
+                raise ValueError("[%s] Length must be a positive integer" % name)
         else:
             length = self.default_length
-        if decimal_count is None:
-            decimal_count = 0
+
+        # for IDE inspection
+        self._code_page = self._name = None
+
         ## set fields
+        self.code_page = code_page
         self.name = name
         # FIXME: validate length according to the specification at
         # http://www.clicketyclick.dk/databases/xbase/format/data_types.html
@@ -92,8 +88,42 @@ class DbfField(object):
         self.ignore_errors = ignore_errors
         self.start = start
 
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        if isinstance(name, bytes):
+            name = name.decode(self.code_page.encoding)
+
+        if not isinstance(name, str):
+            raise TypeError('name must be str')
+
+        if len(name.encode(self.code_page.encoding)) > 10:
+            raise ValueError("Field name '%s' is more than 11 bytes" % name)
+
+        self._name = name.upper()
+
+    @property
+    def code_page(self):
+        return self._code_page
+
+    @code_page.setter
+    def code_page(self, code_page):
+        # prefer to share 1 CodePage instance
+        if not isinstance(code_page, CodePage):
+            code_page = CodePage(code_page)
+
+        self._code_page = code_page
+
+    @property
+    def is_memo(self):
+        """True if field data is kept in the Memo file"""
+        return self.type_code in "GMP"
+
     @classmethod
-    def from_bytes(cls, string, start, ignore_errors=False):
+    def from_bytes(cls, string, start, code_page=0, ignore_errors=False):
         """Decode dbf field definition from the string data.
 
         Arguments:
@@ -106,27 +136,29 @@ class DbfField(object):
                 initial error processing mode for the new field (boolean)
 
         """
-        assert len(string) == 32
+        if len(string) != 32:
+            raise ValueError('String is not 32 bytes length ({0})'.format(len(string)))
+
         return cls(
-            # name
-            utils.unzfill(string[:11]).decode(locale.getpreferredencoding()),
+            utils.unzfill(string[:11]),
+            code_page=code_page,
             length=string[16],
             decimal_count=string[17],
             start=start,
-            ignore_errors=ignore_errors
+            ignore_errors=ignore_errors,
         )
 
     def to_bytes(self):
         """Return encoded field definition.
 
-        Return:
-            Return value is a string object containing encoded
-            definition of this field.
+            Return:
+                Return value is a string object containing encoded
+                definition of this field.
 
-        """
+            """
         return struct.pack(
             '< 11s B L 2B 14s',
-            self.name.encode(locale.getpreferredencoding()),
+            self.name.encode(self.code_page.encoding),
             ord(self.type_code),
             self.start,
             self.length,
@@ -143,27 +175,27 @@ class DbfField(object):
     def field_info(self):
         """Return field information.
 
-        Return:
-            Return value is a (name, type, length, decimals) tuple.
+            Return:
+                Return value is a (name, type, length, decimals) tuple.
 
-        """
+            """
         return self.name, self.type_code, self.length, self.decimal_count
 
     def decode(self, value):
         """Return decoded value from string value.
 
-        This method shouldn't be used publicly. It's called from the
-        `decodeFromRecord` method.
+            This method shouldn't be used publicly. It's called from the
+            `decodeFromRecord` method.
 
-        This is an abstract method and it must be overridden in child classes.
-        """
+            This is an abstract method and it must be overridden in child classes.
+            """
         raise NotImplementedError
 
     def encode(self, value):
         """Return str object containing encoded field value.
 
-        This is an abstract method and it must be overriden in child classes.
-        """
+            This is an abstract method and it must be overriden in child classes.
+            """
         raise NotImplementedError
 
 
@@ -181,11 +213,11 @@ class DbfCharacterField(DbfField):
         Return value is a ``value`` argument with stripped right spaces.
 
         """
-        return value.decode(locale.getpreferredencoding()).rstrip(" ")
+        return value.decode(self.code_page.encoding).rstrip(" ")
 
     def encode(self, value):
         """Return raw data string encoded from a ``value``."""
-        value = str(value).encode(locale.getpreferredencoding())
+        value = str(value).encode(self.code_page.encoding)
         return value[:self.length].ljust(self.length)
 
 
@@ -209,7 +241,9 @@ class DbfNumericField(DbfField):
             Return value is a int (long) or float instance.
 
         """
-        value = value.strip(b" \x00").decode(locale.getpreferredencoding())
+        value = value.strip(b" \x00").decode(
+            self.code_page.encoding
+        )
         if "." in value:
             # a float (has decimal separator)
             return float(value)
@@ -221,15 +255,15 @@ class DbfNumericField(DbfField):
 
     def encode(self, value):
         """Return string containing encoded ``value``."""
-        _rv = ("%*.*f" % (self.length, self.decimal_count, value))
-        if len(_rv) > self.length:
-            _ppos = _rv.find(".")
-            if not (0 <= _ppos <= self.length):
+        string = ("%*.*f" % (self.length, self.decimal_count, value))
+        if len(string) > self.length:
+            if not (0 <= string.find(".") <= self.length):
                 raise ValueError("[%s] Numeric overflow: %s (field width: %i)"
-                                 % (self.name, _rv, self.length))
+                                 % (self.name, string, self.length))
 
-            _rv = _rv[:self.length]
-        return _rv.encode(locale.getpreferredencoding())
+            string = string[:self.length]
+
+        return string.encode(self.code_page.encoding)
 
 
 class DbfFloatField(DbfNumericField):
@@ -372,7 +406,7 @@ class DbfDateField(DbfField):
 
         """
         if value:
-            return utils.get_gate(value).strftime("%Y%m%d").encode(locale.getpreferredencoding())
+            return utils.get_gate(value).strftime("%Y%m%d").encode(self.code_page.encoding)
         else:
             return b" " * self.length
 
@@ -412,14 +446,17 @@ class DbfDateTimeField(DbfField):
         if value:
             value = utils.get_date_time(value)
             # LE byteorder
-            _rv = struct.pack("<2I", value.toordinal() + self.JDN_GDN_DIFF,
-                              (value.hour * 3600 + value.minute * 60 + value.second) * 1000)
+            string = struct.pack(
+                "<2I", value.toordinal() + self.JDN_GDN_DIFF,
+                (value.hour * 3600 + value.minute * 60 + value.second) * 1000
+            )
         else:
-            _rv = b"\x00" * self.length
+            string = b"\x00" * self.length
 
-        _rv = _rv.encode(locale.getpreferredencoding())
-        assert len(_rv) == self.length
-        return _rv
+        if len(string) != self.length:
+            raise ValueError('encoded string length does not match ({})'.format(string))
+
+        return string
 
 
 _fieldsRegistry = {}

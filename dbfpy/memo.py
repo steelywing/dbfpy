@@ -40,7 +40,7 @@ class MemoFile(object):
     __slots__ = ("name", "stream", "is_fpt", "blocksize", "tail")
 
     # End Of Text
-    EOT = "\x1A\x1A"
+    EOT = b"\x1A\x1A"
 
     def __init__(self, f, blocksize=512, fpt=True,
             readOnly=False, new=False,

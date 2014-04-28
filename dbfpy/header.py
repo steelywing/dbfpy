@@ -1,12 +1,8 @@
 """DBF header definition.
 
 TODO:
-  - handle encoding of the character fields
-    (encoding information stored in the DBF header)
-
+  - test encoding
 """
-import textwrap
-from dbfpy import utils
 
 __version__ = "$Revision: 1.7 $"[11:-2]
 __date__ = "$Date: 2010/12/14 11:07:45 $"[7:-2]
@@ -16,12 +12,14 @@ __all__ = ["DbfHeader"]
 import io
 import datetime
 import struct
+import textwrap
 
 from .fields import DbfField, field_class_of
 from .utils import get_gate
+from .code_page import CodePage
 
 
-class DbfHeader(object):
+class DbfHeader():
     """Dbf header definition.
 
     For more information about dbf header format visit
@@ -44,7 +42,7 @@ class DbfHeader(object):
 
     __slots__ = (
         "signature", "fields", "last_update", "record_length", "record_count",
-        "header_length", "_changed", "flag", "code_page", "_ignore_errors"
+        "header_length", "_changed", "flag", "_code_page", "_ignore_errors"
     )
 
     ## instance construction and initialization methods
@@ -78,6 +76,9 @@ class DbfHeader(object):
                 error processing mode for DBF fields (boolean)
 
         """
+        # for IDE inspection
+        self._ignore_errors = self._code_page = None
+
         self.signature = signature
         self.fields = [] if fields is None else list(fields)
         self.last_update = get_gate(last_update)
@@ -88,6 +89,18 @@ class DbfHeader(object):
         self.code_page = code_page
         self.ignore_errors = ignore_errors
         self._changed = False
+
+    @property
+    def code_page(self):
+        return self._code_page
+
+    @code_page.setter
+    def code_page(self, code_page):
+        # prefer to share 1 CodePage instance
+        if not isinstance(code_page, CodePage):
+            code_page = CodePage(code_page)
+
+        self._code_page = code_page
 
     @property
     def changed(self):
@@ -131,7 +144,12 @@ class DbfHeader(object):
             data = stream.read(32)
             if len(data) < 32 or data[0] == 0x0D:
                 break
-            field = field_class_of(chr(data[11])).from_bytes(data, pos)
+
+            field = field_class_of(
+                chr(data[11])
+            ).from_bytes(
+                data, pos, code_page=self.code_page
+            )
             self.add_field(field)
             pos = field.start + field.length
 
@@ -210,7 +228,7 @@ class DbfHeader(object):
             Record length:  %d
             Record count:   %d
             Table Flag:     0x%02X
-            Code Page:      0x%02X
+            Code Page:      %s
 
         """ % (
             self.signature, self.last_update, self.header_length,
@@ -281,11 +299,16 @@ class DbfHeader(object):
 
         for field in fields:
             if not isinstance(field, DbfField):
-                if hasattr(field, '__getitem__'):
-                    (name, type_code, length, decimal) = (tuple(field) + (None,) * 4)[:4]
-                    field_class = field_class_of(type_code)
-                    field = field_class(
-                        name, length, decimal, start=self.record_length,
+                if hasattr(field, '__iter__'):
+                    args = list(field)[:4]
+                    type_code = args.pop(0)
+                    if not isinstance(type_code, str):
+                        raise TypeError('type code must be 1 length string ({0})'.format(type_code))
+
+                    field = field_class_of(type_code)(
+                        *args,
+                        code_page=self.code_page,
+                        start=self.record_length,
                         ignore_errors=self._ignore_errors
                     )
                 else:
@@ -330,7 +353,7 @@ class DbfHeader(object):
             self.record_length,
             b"\x00" * 16,
             self.flag,
-            self.code_page,
+            self.code_page.code_page,
             b"\x00" * 2
         )
 
@@ -353,6 +376,6 @@ class DbfHeader(object):
             # item must be field index
             return self.fields[item]
         else:
-            raise TypeError('unsupport index type ({0})'.format(type(item)))
+            raise TypeError('unsupported index type ({0})'.format(type(item)))
 
 # vim: et sts=4 sw=4 :
