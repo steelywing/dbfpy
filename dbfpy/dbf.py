@@ -44,9 +44,9 @@ __author__ = "Jeff Kunce <kuncej@mail.conservation.state.mo.us>"
 
 __all__ = ["Dbf"]
 
-from . import header
+from .header import DbfHeader
 from . import memo
-from . import record
+from .record import DbfRecord
 from . import utils
 
 
@@ -61,8 +61,6 @@ class Dbf(object):
 
     __slots__ = ("name", "header", "stream", "memo", "_ignore_errors")
 
-    HeaderClass = header.DbfHeader
-    RecordClass = record.DbfRecord
     INVALID_VALUE = utils.INVALID_VALUE
 
     ## initialization and creation helpers
@@ -107,10 +105,10 @@ class Dbf(object):
 
         if new:
             # if this is a new table, header will be empty
-            self.header = self.HeaderClass()
+            self.header = DbfHeader()
         else:
             # or instantiated using stream
-            self.header = self.HeaderClass.from_stream(self.stream)
+            self.header = DbfHeader.from_stream(self.stream)
 
         self.ignore_errors = ignore_errors
         if memo_file:
@@ -185,6 +183,15 @@ class Dbf(object):
 
     def close(self):
         self.flush()
+
+        if self.stream.writable():
+            # write SUB (ASCII 26) after last record
+            self.stream.seek(
+                self.header.header_length +
+                self.header.record_count * self.header.record_length
+            )
+            self.stream.write(b"\x1A")
+
         self.stream.close()
 
     def flush(self):
@@ -197,26 +204,29 @@ class Dbf(object):
 
     def new_record(self):
         """Return new record, which belong to this table."""
-        return self.RecordClass(self)
+        return DbfRecord(self.header)
 
     def write_record(self, record):
-        """Write data to the dbf stream."""
+        """Write data to the dbf stream.
+
+        If ``record.index`` is None, this record will be appended to the
+        records of the DBF this records belongs to; or replaced otherwise.
+        """
         if not self.stream.writable():
             return
-        record.validate_index(False)
+
+        if record.index is None:
+            record.index = self.header.record_count
+            self.header.record_count += 1
+
+        record.validate_index()
         self.stream.seek(record.position)
         self.stream.write(record.to_bytes())
-        # why we should check this condition for each record?
-        if record.index == len(self):
-            # this is the last record,
-            # we should write SUB (ASCII 26)
-            self.stream.write(b"\x1A")
 
     def append(self, record):
         """Append ``record`` to the database."""
-        record.index = self.header.record_count
+        record.index = None
         self.write_record(record)
-        self.header.record_count += 1
 
     def add_field(self, *defs):
         """Add field definitions.
@@ -247,8 +257,13 @@ class Dbf(object):
     def __getitem__(self, index):
         """Return `DbfRecord` instance."""
         if isinstance(index, slice):
-            return [self[_recno] for _recno in range(self.record_count)[index]]
-        return self.RecordClass.from_stream(self, self._fix_index(index))
+            return [self[i] for i in range(self.record_count)[index]]
+
+        record = DbfRecord(
+            self.header, index=self._fix_index(index)
+        )
+        record.from_stream(self.stream)
+        return record
 
     def __setitem__(self, index, record):
         """Write `DbfRecord` instance to the stream."""

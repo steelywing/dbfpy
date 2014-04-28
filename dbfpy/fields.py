@@ -20,7 +20,7 @@ from . import utils
 
 ## abstract definitions
 
-class DbfFieldDef(object):
+class DbfField(object):
     """Abstract field definition.
 
     Child classes must override ``type`` class attribute to provide datatype
@@ -57,7 +57,9 @@ class DbfFieldDef(object):
     default_value = None
 
     # True if field data is kept in the Memo file
-    isMemo = property(lambda self: self.type_code in "GMP")
+    @property
+    def is_memo(self):
+        return self.type_code in "GMP"
 
     def __init__(
             self, name, length=None, decimal_count=None,
@@ -90,17 +92,11 @@ class DbfFieldDef(object):
         self.ignore_errors = ignore_errors
         self.start = start
 
-    def __eq__(self, other):
-        return self.name == str(other.name)
-
-    def __ne__(self, other):
-        return not (self == other)
-
     def __hash__(self):
         return hash(self.name)
 
     @classmethod
-    def from_string(cls, string, start, ignore_errors=False):
+    def from_bytes(cls, string, start, ignore_errors=False):
         """Decode dbf field definition from the string data.
 
         Arguments:
@@ -116,7 +112,7 @@ class DbfFieldDef(object):
         assert len(string) == 32
         return cls(
             # name
-            utils.unzfill(string)[:11].decode(locale.getpreferredencoding()),
+            utils.unzfill(string[:11]).decode(locale.getpreferredencoding()),
             length=string[16],
             decimal_count=string[17],
             start=start,
@@ -187,7 +183,7 @@ class DbfFieldDef(object):
 
 ## real classes
 
-class DbfCharacterFieldDef(DbfFieldDef):
+class DbfCharacterField(DbfField):
     """Definition of the character field."""
 
     type_code = "C"
@@ -207,7 +203,7 @@ class DbfCharacterFieldDef(DbfFieldDef):
         return value[:self.length].ljust(self.length)
 
 
-class DbfNumericFieldDef(DbfFieldDef):
+class DbfNumericField(DbfField):
     """Definition of the numeric field."""
 
     type_code = "N"
@@ -250,13 +246,13 @@ class DbfNumericFieldDef(DbfFieldDef):
         return _rv.encode(locale.getpreferredencoding())
 
 
-class DbfFloatFieldDef(DbfNumericFieldDef):
+class DbfFloatField(DbfNumericField):
     """Definition of the float field - same as numeric."""
 
     type_code = "F"
 
 
-class DbfIntegerFieldDef(DbfFieldDef):
+class DbfIntegerField(DbfField):
     """Definition of the integer field."""
 
     type_code = "I"
@@ -272,7 +268,7 @@ class DbfIntegerFieldDef(DbfFieldDef):
         return struct.pack("<i", int(value))
 
 
-class DbfCurrencyFieldDef(DbfFieldDef):
+class DbfCurrencyField(DbfField):
     """Definition of the currency field."""
 
     type_code = "Y"
@@ -288,7 +284,7 @@ class DbfCurrencyFieldDef(DbfFieldDef):
         return struct.pack("<q", round(value * 10000))
 
 
-class DbfLogicalFieldDef(DbfFieldDef):
+class DbfLogicalField(DbfField):
     """Definition of the logical field."""
 
     type_code = "L"
@@ -322,7 +318,7 @@ class DbfLogicalFieldDef(DbfFieldDef):
             return b"F"
 
 
-class DbfMemoFieldDef(DbfFieldDef):
+class DbfMemoField(DbfField):
     """Definition of the memo field."""
 
     type_code = "M"
@@ -353,14 +349,14 @@ class DbfMemoFieldDef(DbfFieldDef):
             return self.default_value
 
 
-class DbfGeneralFieldDef(DbfFieldDef):
+class DbfGeneralField(DbfField):
     """Definition of the general (OLE object) field."""
 
     type_code = "G"
     memoType = MemoData.TYPE_OBJECT
 
 
-class DbfDateFieldDef(DbfFieldDef):
+class DbfDateField(DbfField):
     """Definition of the date field."""
 
     type_code = "D"
@@ -395,7 +391,7 @@ class DbfDateFieldDef(DbfFieldDef):
             return b" " * self.length
 
 
-class DbfDateTimeFieldDef(DbfFieldDef):
+class DbfDateTimeField(DbfField):
     """Definition of the timestamp field."""
 
     # a difference between JDN (Julian Day Number)
@@ -442,10 +438,11 @@ class DbfDateTimeFieldDef(DbfFieldDef):
 
 _fieldsRegistry = {}
 
+
 def register_field(field_class):
     """Register field definition class.
 
-    ``field_class`` should be subclass of the `DbfFieldDef`.
+    ``field_class`` should be subclass of the `DbfField`.
 
     Use `lookupFor` to retrieve field definition class
     by the type code.
@@ -464,18 +461,18 @@ def lookup_for(type_code):
     Use `registerField` to register new field class.
 
     Return:
-        Return value is a subclass of the `DbfFieldDef`.
+        Return value is a subclass of the `DbfField`.
 
     """
     return _fieldsRegistry[type_code.upper()]
 
 ## register generic types
 
-for (_name, _val) in list(globals().items()):
-    if (isinstance(_val, type) and
-            DbfFieldDef in _val.__bases__):
-        __all__.append(_name)
-        register_field(_val)
-del _name, _val
+for (type_code, klass) in list(globals().items()):
+    if (isinstance(klass, type) and
+            issubclass(klass, DbfField) and klass is not DbfField):
+        __all__.append(type_code)
+        register_field(klass)
+del type_code, klass
 
 # vim: et sts=4 sw=4 :

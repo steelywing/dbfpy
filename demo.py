@@ -21,7 +21,7 @@ for (name, surname, initials, birthdate) in (
     rec["SURNAME"] = surname
     rec["INITIALS"] = initials
     rec["BIRTHDATE"] = birthdate
-    rec.store()
+    db.write_record(rec)
 
 print(db, '\n\n')
 db.close()

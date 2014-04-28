@@ -32,12 +32,12 @@ class DbfHeader(object):
             dbfh = DbfHeader()
             dbfh.addField(("name", "C", 10))
             dbfh.addField(("date", "D"))
-            dbfh.addField(DbfNumericFieldDef("price", 5, 2))
+            dbfh.addField(DbfNumericField("price", 5, 2))
         Create a dbf header with field definitions:
             dbfh = DbfHeader([
                 ("name", "C", 10),
                 ("date", "D"),
-                DbfNumericFieldDef("price", 5, 2),
+                DbfNumericField("price", 5, 2),
             ])
 
     """
@@ -120,8 +120,10 @@ class DbfHeader(object):
 
         # TODO: check file size greater than record count
         ## create header object
-        header = cls(None, header_length, record_length, count, data[0],
-                   (year, month, day), flag, code_page)
+        header = cls(
+            None, header_length, record_length, count, data[0],
+            (year, month, day), flag, code_page
+        )
         ## append field definitions
         # position 0 is for the deletion flag
         _pos = 1
@@ -129,7 +131,7 @@ class DbfHeader(object):
             data = stream.read(32)
             if len(data) < 32 or data[0] == 0x0D:
                 break
-            field = fields.lookup_for(chr(data[11])).from_string(data, _pos)
+            field = fields.lookup_for(chr(data[11])).from_bytes(data, _pos)
             header._add_field(field)
             _pos = field.start + field.length
         return header
@@ -151,7 +153,7 @@ class DbfHeader(object):
     def has_memo(self):
         """True if at least one field is a Memo field"""
         for _field in self.fields:
-            if _field.isMemo:
+            if _field.is_memo:
                 return True
         return False
 
@@ -215,13 +217,13 @@ class DbfHeader(object):
         method if you don't exactly know what you're doing.
 
         """
-        # insure we have dbf.DbfFieldDef instances first (instantiation
+        # insure we have dbf.DbfField instances first (instantiation
         # from the tuple could raise an error, in such a case I don't
         # wanna add any of the definitions -- all will be ignored)
         _defs = []
         _recordLength = self.record_length
         for _def in defs:
-            if isinstance(_def, fields.DbfFieldDef):
+            if isinstance(_def, fields.DbfField):
                 _obj = _def
             else:
                 (_name, _type, _len, _dec) = (tuple(_def) + (None,) * 4)[:4]
@@ -259,7 +261,7 @@ class DbfHeader(object):
         """
         _has_memo = False
         for _field in self.fields:
-            if _field.isMemo:
+            if _field.is_memo:
                 _field.file = memo
                 _has_memo = True
         # for signatures list, see
@@ -282,12 +284,12 @@ class DbfHeader(object):
         Examples:
             dbfh.addField(
                 ("name", "C", 20),
-                dbf.DbfCharacterFieldDef("surname", 20),
-                dbf.DbfDateFieldDef("birthdate"),
+                dbf.DbfCharacterField("surname", 20),
+                dbf.DbfDateField("birthdate"),
                 ("member", "L"),
             )
             dbfh.addField(("price", "N", 5, 2))
-            dbfh.addField(dbf.DbfNumericFieldDef("origprice", 5, 2))
+            dbfh.addField(dbf.DbfNumericField("origprice", 5, 2))
 
         """
         if not self.record_length:
