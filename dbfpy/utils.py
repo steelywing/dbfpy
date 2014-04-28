@@ -3,7 +3,6 @@
 TODO:
   - allow strings in getDateTime routine;
 """
-import sys
 
 __version__ = "$Revision: 1.4 $"[11:-2]
 __date__ = "$Date: 2007/02/11 08:57:17 $"[7:-2]
@@ -145,6 +144,7 @@ class _InvalidValue(object):
 
     def __int__(self):
         return 0
+
     __long__ = __int__
 
     def __float__(self):
