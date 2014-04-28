@@ -5,10 +5,11 @@ Python 3 modules for accessing .dbf files
 
 * Support dBase, FoxPro...
 * Support memo
+* Code page
 
-### Not working
+### TODO
 
-* Code page (now using current system locale to decode string)
+* Write test
 
 ### Install
 
@@ -21,9 +22,13 @@ See [demo.py](https://github.com/SteelyWing/dbfpy/blob/master/demo.py)
 
 ---
 
-*!!  USE AT YOUR OWN RISK    !!*
+### NOT FULLY TEST YET
 
-*!! NO WARRANTIES WHATSOEVER !!*
+### USE AT YOUR OWN RISK
+
+### NO WARRANTIES WHATSOEVER
+
+---
 
 Jeff Kunce <kuncej@mail.conservation.state.mo.us>
 
