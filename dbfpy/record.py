@@ -21,29 +21,10 @@ class DbfRecord(object):
 
     Class implements mapping/sequence interface, so
     fields could be accessed via their names or indexes
-    (names is a preffered way to access fields).
-
-    Hint:
-        Use `store` method to save modified record.
-
-    Examples:
-        Add new record to the database:
-            db = Dbf(filename)
-            rec = db.newRecord()
-            rec["FIELD1"] = value1
-            rec["FIELD2"] = value2
-            rec.store()
-        Or the same, but modify existed
-        (second in this case) record:
-            db = Dbf(filename)
-            rec = db[2]
-            rec["FIELD1"] = value1
-            rec["FIELD2"] = value2
-            rec.store()
-
+    (names is a preferred way to access fields).
     """
 
-    __slots__ = "dbf", "header", "index", "deleted", "fields"
+    __slots__ = "dbf", "header", "_index", "deleted", "fields"
 
     ## creation and initialization
 
@@ -60,7 +41,8 @@ class DbfRecord(object):
                 Boolean flag indicating whether this record
                 is a deleted record.
             data:
-                A sequence or None. This is a data of the fields.
+                Can be None, sequence, IOBase stream or bytes,
+                This is a data of the fields.
                 If this argument is None, default values will be used.
 
         """
@@ -68,6 +50,8 @@ class DbfRecord(object):
             raise TypeError('header is not a %s' % DbfHeader)
 
         self.header = header
+        # for IDE inspection
+        self._index = None
         self.index = index
         self.deleted = deleted
         if data is None:
@@ -84,62 +68,60 @@ class DbfRecord(object):
     @property
     def position(self):
         """File position of record"""
+        if self.index is None:
+            raise IndexError('Record index is None')
+
         return (self.header.header_length +
                 self.index * self.header.record_length)
 
-    def from_stream(self, stream):
-        """Read record from the stream.
+    @property
+    def index(self):
+        return self._index
 
-        Arguments:
-            stream:
-                The record stream.
-        """
+    @index.setter
+    def index(self, index):
+        if index is None:
+            # None means append to the last, we set the real index when write to stream
+            self._index = None
+            return
+
+        if not isinstance(index, int):
+            raise TypeError("Index must be int")
+
+        if index >= self.header.record_count:
+            raise IndexError("Record index out of range")
+
+        if index < 0:
+            # index from the right side
+            index += self.header.record_count + 1
+
+        self._index = index
+
+    def from_bytes(self, string):
+        """Return record read from the string."""
+        self.fields = [field.decode_from_record(string) for field in self.header.fields]
+
+    def from_stream(self, stream):
+        """Read record from the stream."""
         # FIXME: validate file position
         stream.seek(self.position)
         self.from_bytes(stream.read(self.header.record_length))
-
-    def from_bytes(self, string):
-        """Return record read from the string.
-
-        Arguments:
-            string:
-                String record should be loaded from.
-        """
-        self.fields = [field.decode_from_record(string) for field in self.header.fields]
+        return self
 
     def __str__(self):
-        template = "%%%ds: %%s (%%s)" % max(
-            len(field.name) for field in self.header.fields
-        )
+        names = (field.name for field in self.header.fields)
+        template = "%%%ds: %%s (%%s)" % max(len(name) for name in names)
 
-        string = []
+        rows = []
         for field in self.header.fields:
             value = self[field.name]
             if value is utils.INVALID_VALUE:
-                string.append(
+                rows.append(
                     template % (field, "None", "value cannot be decoded")
                 )
             else:
-                string.append(template % (field.name, value, type(value)))
-        return "\n".join(string)
-
-    ## utility methods
-
-    def validate_index(self, allow_undefined=True, check_range=False):
-        """Valid ``self.index`` value.
-
-        If ``allow_undefined`` argument is True functions does nothing
-        in case of ``self.index`` pointing to None object.
-
-        """
-        if self.index is None:
-            if not allow_undefined:
-                raise ValueError("Index is undefined")
-        elif self.index < 0:
-            raise ValueError("Index can't be negative (%s)" % self.index)
-        elif check_range and self.index <= self.header.record_count:
-            raise ValueError("There are only %d records in the DBF" %
-                             self.header.record_count)
+                rows.append(template % (field.name, value, type(value)))
+        return "\n".join(rows)
 
     def delete(self):
         """Mark method as deleted."""
@@ -173,7 +155,7 @@ class DbfRecord(object):
             real values stored in this object.
 
         """
-        return dict([_i for _i in zip(self.dbf.field_names, self.fields)])
+        return dict([field for field in zip(self.header.field_names(), self.fields)])
 
     def __getitem__(self, key):
         """Return value by field name or field index."""

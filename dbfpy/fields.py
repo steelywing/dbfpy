@@ -8,7 +8,7 @@ TODO:
 __version__ = "$Revision: 1.15 $"[11:-2]
 __date__ = "$Date: 2010/12/14 11:04:49 $"[7:-2]
 
-__all__ = ["lookup_for", ]  # field classes added at the end of the module
+__all__ = ["field_class_of", ]  # field classes added at the end of the module
 
 import datetime
 import struct
@@ -452,7 +452,7 @@ def register_field(field_class):
     _fieldsRegistry[field_class.type_code.upper()] = field_class
 
 
-def lookup_for(type_code):
+def field_class_of(type_code):
     """Return field definition class for the given type code.
 
     ``type_code`` must be a single character. That type should be

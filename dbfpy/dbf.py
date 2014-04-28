@@ -103,12 +103,10 @@ class Dbf(object):
             self.name = getattr(file, "name", "")
             self.stream = file
 
-        if new:
-            # if this is a new table, header will be empty
-            self.header = DbfHeader()
-        else:
+        self.header = DbfHeader()
+        if not new:
             # or instantiated using stream
-            self.header = DbfHeader.from_stream(self.stream)
+            self.header.from_stream(self.stream)
 
         self.ignore_errors = ignore_errors
         if memo_file:
@@ -153,35 +151,10 @@ class Dbf(object):
         """Update `ignore_errors` flag on the header object and self"""
         self.header.ignore_errors = self._ignore_errors = bool(value)
 
-    ## protected methods
-
-    def _fix_index(self, index):
-        """Return fixed index.
-
-        This method fails if index isn't a numeric object
-        (long or int). Or index isn't in a valid range
-        (less or equal to the number of records in the db).
-
-        If ``index`` is a negative number, it will be
-        treated as a negative indexes for list objects.
-
-        Return:
-            Return value is numeric object maning valid index.
-
-        """
-        if not isinstance(index, int):
-            raise TypeError("Index must be a numeric object")
-        if index < 0:
-            # index from the right side
-            # fix it to the left-side index
-            index += len(self) + 1
-        if index >= len(self):
-            raise IndexError("Record index out of range")
-        return index
-
     ## interface methods
 
     def close(self):
+        """Close the stream, write the end of record 0x1A and truncate"""
         self.flush()
 
         if self.stream.writable():
@@ -191,6 +164,7 @@ class Dbf(object):
                 self.header.record_count * self.header.record_length
             )
             self.stream.write(b"\x1A")
+            self.stream.truncate()
 
         self.stream.close()
 
@@ -216,10 +190,11 @@ class Dbf(object):
             return
 
         if record.index is None:
-            record.index = self.header.record_count
+            # we must increase record count before set index,
+            # because set index will raise error if out of range
             self.header.record_count += 1
+            record.index = self.header.record_count - 1
 
-        record.validate_index()
         self.stream.seek(record.position)
         self.stream.write(record.to_bytes())
 
@@ -231,13 +206,8 @@ class Dbf(object):
     def add_field(self, *defs):
         """Add field definitions.
 
-        For more information see `header.DbfHeader.addField`.
-
+        For more information see `header.DbfHeader.add_field`.
         """
-        if self.record_count > 0:
-            raise TypeError("At least one record was added, "
-                            "structure can't be changed")
-
         self.header.add_field(*defs)
         if self.header.has_memo:
             if not self.memo:
@@ -259,15 +229,13 @@ class Dbf(object):
         if isinstance(index, slice):
             return [self[i] for i in range(self.record_count)[index]]
 
-        record = DbfRecord(
-            self.header, index=self._fix_index(index)
-        )
-        record.from_stream(self.stream)
-        return record
+        return DbfRecord(
+            self.header, index=index
+        ).from_stream(self.stream)
 
     def __setitem__(self, index, record):
         """Write `DbfRecord` instance to the stream."""
-        record.index = self._fix_index(index)
+        record.index = index
         self.write_record(record)
 
     #def __del__(self):

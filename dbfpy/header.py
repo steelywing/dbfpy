@@ -17,7 +17,7 @@ import io
 import datetime
 import struct
 
-from . import fields
+from .fields import DbfField, field_class_of
 from .utils import get_gate
 
 
@@ -30,9 +30,9 @@ class DbfHeader(object):
     Examples:
         Create an empty dbf header and add some field definitions:
             dbfh = DbfHeader()
-            dbfh.addField(("name", "C", 10))
-            dbfh.addField(("date", "D"))
-            dbfh.addField(DbfNumericField("price", 5, 2))
+            dbfh.add_field(("name", "C", 10))
+            dbfh.add_field(("date", "D"))
+            dbfh.add_field(DbfNumericField("price", 5, 2))
         Create a dbf header with field definitions:
             dbfh = DbfHeader([
                 ("name", "C", 10),
@@ -44,13 +44,13 @@ class DbfHeader(object):
 
     __slots__ = (
         "signature", "fields", "last_update", "record_length", "record_count",
-        "header_length", "changed", "flag", "code_page", "_ignore_errors"
+        "header_length", "_changed", "flag", "code_page", "_ignore_errors"
     )
 
     ## instance construction and initialization methods
 
     def __init__(
-            self, fields=None, header_length=0, record_length=0,
+            self, fields=None, header_length=0, record_length=1,
             record_count=0, signature=0x03, last_update=None, flag=0,
             code_page=0, ignore_errors=False,
     ):
@@ -60,7 +60,7 @@ class DbfHeader(object):
             fields:
                 a list of field definitions;
             record_length:
-                size of the records;
+                size of the records; default is 1 byte of deletion flag
             header_length:
                 size of the header;
             record_count:
@@ -87,15 +87,17 @@ class DbfHeader(object):
         self.flag = flag
         self.code_page = code_page
         self.ignore_errors = ignore_errors
-        self.changed = False
+        self._changed = False
 
-    @classmethod
-    def from_string(cls, string):
+    @property
+    def changed(self):
+        return self._changed
+
+    def from_string(self, string):
         """Return header instance from the string object."""
-        return cls.from_stream(io.StringIO(str(string)))
+        return self.from_stream(io.StringIO(str(string)))
 
-    @classmethod
-    def from_stream(cls, stream):
+    def from_stream(self, stream):
         """Return header object from the stream."""
 
         # FoxPro DBF file structure
@@ -107,7 +109,7 @@ class DbfHeader(object):
 
         (count, header_length, record_length) = struct.unpack("< I 2H", data[4:12])
         # reserved = data[12:32]
-        year, month, day = data[1:4]
+        year = data[1]
         if year < 80:
             # dBase II started at 1980.  It is quite unlikely
             # that actual last update date is before that year.
@@ -115,26 +117,40 @@ class DbfHeader(object):
         else:
             year += 1900
 
-        flag = data[28]
-        code_page = data[29]
-
         # TODO: check file size greater than record count
-        ## create header object
-        header = cls(
-            None, header_length, record_length, count, data[0],
-            (year, month, day), flag, code_page
-        )
-        ## append field definitions
+        self.fields = []
+        self.header_length = header_length
+        self.signature = data[0]
+        self.last_update = (year, data[2], data[3])
+        self.flag = data[28]
+        self.code_page = data[29]
+        # add field definitions
         # position 0 is for the deletion flag
-        _pos = 1
+        pos = 1
         while True:
             data = stream.read(32)
             if len(data) < 32 or data[0] == 0x0D:
                 break
-            field = fields.lookup_for(chr(data[11])).from_bytes(data, _pos)
-            header._add_field(field)
-            _pos = field.start + field.length
-        return header
+            field = field_class_of(chr(data[11])).from_bytes(data, pos)
+            self.add_field(field)
+            pos = field.start + field.length
+
+        # is real record length == record length field in file ?
+        if self.record_length != record_length:
+            raise ValueError(
+                "DBF file corrupt\n"
+                "real record length (%d) doesn't match record length in file (%d)" %
+                (self.record_length, record_length)
+            )
+
+        # we must set record count after add field,
+        # because if record count is not empty, add_field() will raise error
+        self.record_count = count
+
+        # add_field() will set changed, so we set back to False
+        self._changed = False
+
+        return self
 
     ## properties
     @property
@@ -183,8 +199,11 @@ class DbfHeader(object):
         else:
             raise IndexError('Field not found: {0}'.format(name))
 
+    def field_names(self):
+        return (field.name for field in self.fields)
+
     def __str__(self):
-        _rv = textwrap.dedent("""
+        return textwrap.dedent("""
             Signature:      0x%02X
             Last update:    %s
             Header length:  %d
@@ -193,51 +212,17 @@ class DbfHeader(object):
             Table Flag:     0x%02X
             Code Page:      0x%02X
 
-            """ % (self.signature, self.last_update, self.header_length,
-                   self.record_length, self.record_count, self.flag, self.code_page)
-        )
-        _rv += "\n".join([
+        """ % (
+            self.signature, self.last_update, self.header_length,
+            self.record_length, self.record_count, self.flag, self.code_page)
+        ) + "\n".join([
             "%10s %4s %3s %3s" % tuple(row) for row in (
                 ['FieldName Type Len Dec'.split()] +
                 [field.field_info() for field in self.fields]
             )
         ])
-        return _rv
 
     ## internal methods
-
-    def _add_field(self, *defs):
-        """Internal variant of the `addField` method.
-
-        This method doesn't set `self.changed` field to True.
-
-        Return value is a length of the appended records.
-        Note: this method doesn't modify ``recordLength`` and
-        ``headerLength`` fields. Use `addField` instead of this
-        method if you don't exactly know what you're doing.
-
-        """
-        # insure we have dbf.DbfField instances first (instantiation
-        # from the tuple could raise an error, in such a case I don't
-        # wanna add any of the definitions -- all will be ignored)
-        _defs = []
-        _recordLength = self.record_length
-        for _def in defs:
-            if isinstance(_def, fields.DbfField):
-                _obj = _def
-            else:
-                (_name, _type, _len, _dec) = (tuple(_def) + (None,) * 4)[:4]
-                _cls = fields.lookup_for(_type)
-                _obj = _cls(
-                    _name, _len, _dec, _recordLength,
-                    ignore_errors=self._ignore_errors
-                )
-            _recordLength += _obj.length
-            _defs.append(_obj)
-        # and now extend field definitions and
-        # update record length
-        self.fields += _defs
-        return _recordLength - self.record_length
 
     def _calc_header_length(self):
         """Update self.headerLength attribute after change to header contents
@@ -269,34 +254,50 @@ class DbfHeader(object):
         # http://www.dbf2002.com/dbf-file-format.html
         # If memo is attached, will use 0x30 for Visual FoxPro file,
         # 0x83 for dBASE III+.
-        if (_has_memo and
-                    self.signature not in (0x30, 0x83, 0x8B, 0xCB, 0xE5, 0xF5)
-        ):
+        if _has_memo and self.signature not in (0x30, 0x83, 0x8B, 0xCB, 0xE5, 0xF5):
             if memo.is_fpt:
                 self.signature = 0x30
             else:
                 self.signature = 0x83
         self._calc_header_length()
 
-    def add_field(self, *defs):
+    def add_field(self, *fields):
         """Add field definition to the header.
 
         Examples:
-            dbfh.addField(
+            dbf.add_field(
                 ("name", "C", 20),
                 dbf.DbfCharacterField("surname", 20),
                 dbf.DbfDateField("birthdate"),
                 ("member", "L"),
             )
-            dbfh.addField(("price", "N", 5, 2))
-            dbfh.addField(dbf.DbfNumericField("origprice", 5, 2))
+            dbfh.add_field(("price", "N", 5, 2))
+            dbfh.add_field(dbf.DbfNumericField("origprice", 5, 2))
 
         """
-        if not self.record_length:
-            self.record_length = 1
-        self.record_length += self._add_field(*defs)
+        if self.record_count > 0:
+            raise TypeError("At least one record was added, "
+                            "structure can't be changed")
+
+        for field in fields:
+            if not isinstance(field, DbfField):
+                if hasattr(field, '__getitem__'):
+                    (name, type_code, length, decimal) = (tuple(field) + (None,) * 4)[:4]
+                    field_class = field_class_of(type_code)
+                    field = field_class(
+                        name, length, decimal, start=self.record_length,
+                        ignore_errors=self._ignore_errors
+                    )
+                else:
+                    raise 'Field is not a %s (%s)' % (DbfField, type(field))
+
+            self.record_length += field.length
+            self.fields.append(field)
+
+        # and now extend field definitions and
+        # update record record_length
         self._calc_header_length()
-        self.changed = True
+        self._changed = True
 
     def write(self, stream):
         """Encode and write header to the stream."""
@@ -309,7 +310,7 @@ class DbfHeader(object):
         _pos = stream.tell()
         if _pos < self.header_length:
             stream.write(b"\x00" * (self.header_length - _pos))
-        self.changed = False
+        self._changed = False
 
     def to_bytes(self):
         """Returned 32 chars length string with encoded header."""
