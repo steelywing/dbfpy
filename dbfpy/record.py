@@ -58,10 +58,8 @@ class DbfRecord(object):
             self.fields = [field.default_value for field in header.fields]
         elif hasattr(data, '__iter__'):
             self.fields = list(data)
-        elif isinstance(data, io.IOBase):
-            self.from_stream(data)
-        elif isinstance(data, bytes):
-            self.from_bytes(data)
+        elif isinstance(data, io.IOBase) or isinstance(data, bytes):
+            self.read(data)
         else:
             raise TypeError("doesn't support this field data (%s)" % type(data))
 
@@ -100,26 +98,24 @@ class DbfRecord(object):
     def decode(self, string):
         """Return record read from the string."""
         try:
-            return [
-                field.decode(
-                    string[field.start:field.start + field.length]
-                ) for field in self.header.fields
-            ]
+            return [field.decode(
+                string[field.start:field.start + field.length]
+            ) for field in self.header.fields]
         except:
             if self.header.ignore_errors:
                 return utils.INVALID_VALUE
             else:
                 raise
 
-    def from_bytes(self, string):
-        """Read record from the string."""
-        self.fields = self.decode(string)
+    def read(self, string):
+        """Read record from string or stream."""
+        if isinstance(string, io.IOBase):
+            # FIXME: validate file position
+            stream = string
+            stream.seek(self.position)
+            string = stream.read(self.header.record_length)
 
-    def from_stream(self, stream):
-        """Read record from the stream."""
-        # FIXME: validate file position
-        stream.seek(self.position)
-        self.from_bytes(stream.read(self.header.record_length))
+        self.fields = self.decode(string)
         return self
 
     def __str__(self):

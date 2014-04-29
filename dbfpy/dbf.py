@@ -103,9 +103,10 @@ class Dbf(object):
             self.name = getattr(file, "name", "")
             self.stream = file
 
-        self.header = DbfHeader()
-        if not new:
-            self.header.parse(self.stream)
+        if new:
+            self.header = DbfHeader()
+        else:
+            self.header = DbfHeader.parse(self.stream)
 
         # for IDE inspection
         self._ignore_errors = None
@@ -231,9 +232,11 @@ class Dbf(object):
         if isinstance(index, slice):
             return [self[i] for i in range(self.record_count)[index]]
 
-        return DbfRecord(
+        record = DbfRecord(
             self.header, index=index
-        ).from_stream(self.stream)
+        )
+        record.read(self.stream)
+        return record
 
     def __setitem__(self, index, record):
         """Write `DbfRecord` instance to the stream."""

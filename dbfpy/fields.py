@@ -3,6 +3,7 @@
 TODO:
   - make memos work
   - test encode (windows console can't print utf-8 characters)
+  - use DbfField.__new__ construct
 """
 
 __version__ = "$Revision: 1.15 $"[11:-2]
@@ -124,7 +125,7 @@ class DbfField(object):
         return self.type_code in "GMP"
 
     @classmethod
-    def from_bytes(cls, string, start, code_page=0, ignore_errors=False):
+    def parse(cls, string, start, code_page=0, ignore_errors=False):
         """Decode dbf field definition from the string data.
 
         Arguments:

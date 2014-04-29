@@ -56,11 +56,11 @@ class DbfHeader():
 
         Arguments:
             fields:
-                a list of field definitions;
+                list of field definitions ``DbfField```;
             record_length:
                 size of the records; default is 1 byte of deletion flag
             header_length:
-                size of the header;
+                size of the header (including fields definition);
             record_count:
                 number of records stored in DBF;
             signature:
@@ -80,7 +80,7 @@ class DbfHeader():
         self._ignore_errors = self._code_page = None
 
         self.signature = signature
-        self.fields = [] if fields is None else list(fields)
+        self.fields = list(fields) if fields is not None else []
         self.last_update = get_gate(last_update)
         self.record_length = record_length
         self.header_length = header_length
@@ -89,6 +89,11 @@ class DbfHeader():
         self.code_page = code_page
         self.ignore_errors = ignore_errors
         self._changed = False
+
+        if not self.ignore_errors and (
+            self._calc_record_length() != self.record_length
+        ):
+            raise ValueError("record length doesn't match sum(fields.length)")
 
     @property
     def code_page(self):
@@ -106,12 +111,12 @@ class DbfHeader():
     def changed(self):
         return self._changed
 
-    def from_string(self, string):
-        """Return header instance from the string object."""
-        return self.parse(io.StringIO(str(string)))
-
-    def parse(self, stream):
+    @classmethod
+    def parse(cls, stream):
         """Return header object from the stream."""
+
+        if isinstance(stream, bytes):
+            stream = io.BytesIO(stream)
 
         # FoxPro DBF file structure
         # http://msdn.microsoft.com/en-us/library/aa975386%28v=vs.71%29.aspx
@@ -120,9 +125,11 @@ class DbfHeader():
         if data is None or len(data) < 32:
             raise ValueError('header data less than 32 bytes')
 
-        (count, header_length, record_length) = struct.unpack("< I 2H", data[4:12])
-        # reserved = data[12:32]
-        year = data[1]
+        (
+            signature, year, month, day, record_count, header_length,
+            record_length, flag, code_page
+        ) = struct.unpack("< 4B I 2H 16x 2B 2x", data)
+
         if year < 80:
             # dBase II started at 1980.  It is quite unlikely
             # that actual last update date is before that year.
@@ -130,14 +137,12 @@ class DbfHeader():
         else:
             year += 1900
 
+        code_page = CodePage(code_page)
+
         # TODO: check file size greater than record count
-        self.fields = []
-        self.header_length = header_length
-        self.signature = data[0]
-        self.last_update = (year, data[2], data[3])
-        self.flag = data[28]
-        self.code_page = data[29]
-        # add field definitions
+
+        # read fields definition
+        fields = []
         # position 0 is for the deletion flag
         pos = 1
         while True:
@@ -147,28 +152,23 @@ class DbfHeader():
 
             field = field_class_of(
                 chr(data[11])
-            ).from_bytes(
-                data, pos, code_page=self.code_page
+            ).parse(
+                data, pos, code_page=code_page
             )
-            self.add_field(field)
+            fields.append(field)
             pos = field.start + field.length
 
-        # is real record length == record length field in file ?
-        if self.record_length != record_length and not self.ignore_errors:
-            raise ValueError(
-                "DBF file corrupt\n"
-                "real record length (%d) doesn't match record length in file (%d)" %
-                (self.record_length, record_length)
-            )
-
-        # we must set record count after add field,
-        # because if record count is not empty, add_field() will raise error
-        self.record_count = count
-
-        # add_field() will set changed, so we set back to False
-        self._changed = False
-
-        return self
+        # DbfHeader instance
+        return cls(
+            fields=fields,
+            record_count=record_count,
+            record_length=record_length,
+            header_length=header_length,
+            signature=signature,
+            last_update=(year, month, day),
+            flag=flag,
+            code_page=code_page,
+        )
 
     ## properties
     @property
@@ -242,9 +242,12 @@ class DbfHeader():
 
     ## internal methods
 
+    def _calc_record_length(self):
+        """Calculte record length using fields.length"""
+        return 1 + sum(field.length for field in self.fields)
+
     def _calc_header_length(self):
-        """Update self.headerLength attribute after change to header contents
-        """
+        """Update self.headerLength attribute after change to header contents"""
         # recalculate headerLength
         self.header_length = 32 + (32 * len(self.fields)) + 1
         if self.signature == 0x30:
@@ -260,19 +263,18 @@ class DbfHeader():
         self.write(stream)
 
     def set_memo_file(self, memo):
-        """Attach MemoFile instance to all memo fields; check header signature
-        """
-        _has_memo = False
-        for _field in self.fields:
-            if _field.is_memo:
-                _field.file = memo
-                _has_memo = True
+        """Attach MemoFile instance to all memo fields; check header signature"""
+        has_memo = False
+        for field in self.fields:
+            if field.is_memo:
+                field.file = memo
+                has_memo = True
         # for signatures list, see
         # http://www.clicketyclick.dk/databases/xbase/format/dbf.html#DBF_NOTE_1_TARGET
         # http://www.dbf2002.com/dbf-file-format.html
         # If memo is attached, will use 0x30 for Visual FoxPro file,
         # 0x83 for dBASE III+.
-        if _has_memo and self.signature not in (0x30, 0x83, 0x8B, 0xCB, 0xE5, 0xF5):
+        if has_memo and self.signature not in (0x30, 0x83, 0x8B, 0xCB, 0xE5, 0xF5):
             if memo.is_fpt:
                 self.signature = 0x30
             else:
@@ -282,6 +284,8 @@ class DbfHeader():
     def add_field(self, *fields):
         """Add field definition to the header.
 
+        fields:
+            list of DbfField or list of (type_code, name, length, decimal)
         Examples:
             dbf.add_field(
                 ("name", "C", 20),
@@ -303,7 +307,7 @@ class DbfHeader():
                     args = list(field)[:4]
                     type_code = args.pop(0)
                     if not isinstance(type_code, str):
-                        raise TypeError('type code must be 1 length string ({0})'.format(type_code))
+                        raise TypeError('type code "{0}" must be string'.format(type(type_code)))
 
                     field = field_class_of(type_code)(
                         *args,
