@@ -108,9 +108,9 @@ class DbfHeader():
 
     def from_string(self, string):
         """Return header instance from the string object."""
-        return self.from_stream(io.StringIO(str(string)))
+        return self.parse(io.StringIO(str(string)))
 
-    def from_stream(self, stream):
+    def parse(self, stream):
         """Return header object from the stream."""
 
         # FoxPro DBF file structure
@@ -236,7 +236,7 @@ class DbfHeader():
         ) + "\n".join([
             "%10s %4s %3s %3s" % tuple(row) for row in (
                 ['FieldName Type Len Dec'.split()] +
-                [field.field_info() for field in self.fields]
+                [field.info() for field in self.fields]
             )
         ])
 

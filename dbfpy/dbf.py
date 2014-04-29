@@ -105,11 +105,10 @@ class Dbf(object):
 
         self.header = DbfHeader()
         if not new:
-            # or instantiated using stream
-            self.header.from_stream(self.stream)
+            self.header.parse(self.stream)
 
         # for IDE inspection
-        self._ignore_errors = False
+        self._ignore_errors = None
 
         self.ignore_errors = ignore_errors
         if memo_file:

@@ -29,7 +29,10 @@ db.close()
 
 ## read DBF
 
-db = dbf.Dbf('sc.dbf', read_only=True)
+print("Windows console can't print unicode characters, "
+      "so this may raise error")
+
+db = dbf.Dbf('table.dbf', read_only=True)
 print(db, '\n')
 for record in db:
     print(record, '\n')

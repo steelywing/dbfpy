@@ -62,6 +62,7 @@ class DbfField(object):
             code_page=0, start=None, ignore_errors=False,
     ):
         """Initialize instance."""
+
         assert self.type_code is not None, "Type code must be overridden"
         assert self.default_value is not None, "Default value must be overridden"
 
@@ -98,10 +99,10 @@ class DbfField(object):
             name = name.decode(self.code_page.encoding)
 
         if not isinstance(name, str):
-            raise TypeError('name must be str')
+            raise TypeError('name must be str or bytes')
 
         if len(name.encode(self.code_page.encoding)) > 10:
-            raise ValueError("Field name '%s' is more than 11 bytes" % name)
+            raise ValueError("field name '%s' is more than 11 bytes" % name)
 
         self._name = name.upper()
 
@@ -151,11 +152,11 @@ class DbfField(object):
     def to_bytes(self):
         """Return encoded field definition.
 
-            Return:
-                Return value is a string object containing encoded
-                definition of this field.
+        Return:
+            Return bytes object containing encoded
+            definition of this field.
 
-            """
+        """
         return struct.pack(
             '< 11s B L 2B 14s',
             self.name.encode(self.code_page.encoding),
@@ -170,32 +171,32 @@ class DbfField(object):
         return hash(self.name)
 
     def __str__(self):
-        return "%-10s %1s %3d %3d" % self.field_info()
+        return "%-10s %1s %3d %3d" % self.info()
 
-    def field_info(self):
+    def info(self):
         """Return field information.
 
-            Return:
-                Return value is a (name, type, length, decimals) tuple.
+        Return:
+            Return value is a (name, type, length, decimals) tuple.
 
-            """
+        """
         return self.name, self.type_code, self.length, self.decimal_count
 
     def decode(self, value):
         """Return decoded value from string value.
 
-            This method shouldn't be used publicly. It's called from the
-            `decodeFromRecord` method.
+        This method shouldn't be used publicly. It's called from the
+        `decodeFromRecord` method.
 
-            This is an abstract method and it must be overridden in child classes.
-            """
+        This is an abstract method and it must be overridden in child classes.
+        """
         raise NotImplementedError
 
     def encode(self, value):
         """Return str object containing encoded field value.
 
-            This is an abstract method and it must be overriden in child classes.
-            """
+        This is an abstract method and it must be overriden in child classes.
+        """
         raise NotImplementedError
 
 
