@@ -18,7 +18,7 @@ Python 3 modules for accessing .dbf files
 
 ### Demo
 
-See [demo.py](https://github.com/SteelyWing/dbfpy/blob/master/demo.py)
+See [demo.py](https://github.com/SteelyWing/dbfpy/blob/master/examples/demo.py)
 
 ---
 
