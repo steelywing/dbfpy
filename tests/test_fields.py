@@ -2,6 +2,8 @@ __author__ = 'Wing'
 
 import unittest
 
+import env
+from dbfpy import fields
 
 class FieldsTest(unittest.TestCase):
     def setUp(self):
