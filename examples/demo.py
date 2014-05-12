@@ -4,19 +4,20 @@ from dbfpy import dbf
 ## create DBF
 
 db = dbf.Dbf('new.dbf', new=True)
-db.header.code_page = 0x7A
+db.header.code_page = 0x78
 db.add_field(
     ("C", "NAME", 15),
     ("C", "SURNAME", 25),
-    ("C", "INITIALS", 10),
     ("D", "BIRTHDATE"),
 )
 
 for (name, surname, initials, birthdate) in (
-        ("John", "Miller", "YC", (1981, 1, 2)),
-        ("Andy", "Larkin", "AL", (1982, 3, 4)),
-        ("Bill", "Clinth", "简体", (1983, 5, 6)),
-        ("Bobb", "McNail", "测试", (1984, 7, 8)),
+        ("John", "Miller", (1981, 1, 2)),
+        ("Andy", "Larkin", (1982, 3, 4)),
+        ("Bill", "Clinth", (1983, 5, 6)),
+        ("Bobb", "McNail", (1984, 7, 8)),
+        ("毛", "仁愛", (1984, 7, 8)),
+        ("吳", "開深", (1984, 7, 8)),
 ):
     rec = db.new_record()
     rec["NAME"] = name
