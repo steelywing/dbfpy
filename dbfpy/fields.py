@@ -393,7 +393,7 @@ class DbfDateField(DbfField):
     def decode(self, value):
         """Return a ``datetime.date`` instance decoded from ``value``."""
         if value.strip():
-            return utils.get_gate(value)
+            return utils.get_gate(value.decode(self.code_page.encoding))
         else:
             return None
 
