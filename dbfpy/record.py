@@ -58,7 +58,7 @@ class DbfRecord(object):
             self.fields = [field.default_value for field in header.fields]
         elif hasattr(data, '__iter__'):
             self.fields = list(data)
-        elif isinstance(data, io.IOBase) or isinstance(data, bytes):
+        elif isinstance(data, (io.IOBase, bytes)):
             self.read(data)
         else:
             raise TypeError("doesn't support this field data (%s)" % type(data))
@@ -110,8 +110,10 @@ class DbfRecord(object):
     def read(self, string):
         """Read record from string or stream."""
         if isinstance(string, io.IOBase):
-            # FIXME: validate file position
             stream = string
+            if not stream.readable():
+                raise OSError('Stream is not readable')
+            # FIXME: validate file position
             stream.seek(self.position)
             string = stream.read(self.header.record_length)
 
