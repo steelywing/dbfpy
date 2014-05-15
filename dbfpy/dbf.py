@@ -190,7 +190,7 @@ class Dbf(object):
         records of the DBF this records belongs to; or replaced otherwise.
         """
         if not self.stream.writable():
-            return
+            raise IOError('Stream is not writable')
 
         if record.index is None:
             # we must increase record count before set index,

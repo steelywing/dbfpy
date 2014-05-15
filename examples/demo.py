@@ -1,7 +1,8 @@
 import env
+from datetime import date
 from dbfpy import dbf
 
-## create DBF
+# create DBF
 
 db = dbf.Dbf('new.dbf', new=True)
 db.header.code_page = 0x78
@@ -11,7 +12,7 @@ db.add_field(
     ("D", "BIRTHDATE"),
 )
 
-for (name, surname, initials, birthdate) in (
+for (name, surname, birthdate) in (
         ("John", "Miller", (1981, 1, 2)),
         ("Andy", "Larkin", (1982, 3, 4)),
         ("Bill", "Clinth", (1983, 5, 6)),
@@ -22,20 +23,22 @@ for (name, surname, initials, birthdate) in (
     rec = db.new_record()
     rec["NAME"] = name
     rec["SURNAME"] = surname
-    rec["INITIALS"] = initials
     rec["BIRTHDATE"] = birthdate
     db.write_record(rec)
 
 print(db, '\n\n')
 db.close()
 
-## read DBF
+# read and update DBF
 
 print("Windows console can't print unicode characters, "
       "so this may raise error")
 
-db = dbf.Dbf('table.dbf', read_only=True)
+db = dbf.Dbf('table.dbf')
 print(db, '\n')
 for record in db:
     print(record, '\n')
+    record['INT'] = 100
+    record['DATE'] = date.today()
+    db.write_record(record)
 db.close()

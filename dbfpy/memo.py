@@ -163,7 +163,7 @@ class MemoFile(object):
             _length = len(value) + 2
             self.stream.write(value + self.EOT)
         #_cnt = int(math.ceil(float(_length) / self.blocksize))
-        _cnt = (_length + self.blocksize - 1) / self.blocksize
+        _cnt = (_length + self.blocksize - 1) // self.blocksize
         self.stream.write(b"\x00" * (_cnt * self.blocksize - _length))
         self.tail += _cnt
         self.stream.seek(0)
