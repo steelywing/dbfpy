@@ -190,7 +190,7 @@ class Dbf(object):
         records of the DBF this records belongs to; or replaced otherwise.
         """
         if not self.stream.writable():
-            raise IOError('Stream is not writable')
+            raise OSError('Stream is not writable')
 
         if record.index is None:
             # we must increase record count before set index,
@@ -240,6 +240,9 @@ class Dbf(object):
 
     def __setitem__(self, index, record):
         """Write `DbfRecord` instance to the stream."""
+        assert isinstance(index, int)
+        assert isinstance(record, DbfRecord)
+
         record.index = index
         self.write_record(record)
 

@@ -149,16 +149,6 @@ class DbfRecord(object):
             ]
         )
 
-    def as_list(self):
-        """Return a flat list of fields.
-
-        Note:
-            Change of the list's values won't change
-            real values stored in this object.
-
-        """
-        return self.fields[:]
-
     def as_dict(self):
         """Return a dictionary of fields.
 
