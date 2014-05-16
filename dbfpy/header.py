@@ -15,7 +15,7 @@ import struct
 import textwrap
 
 from .fields import DbfField, field_class_of
-from .utils import get_gate
+from .utils import get_date
 from .code_page import CodePage
 
 
@@ -41,7 +41,7 @@ class DbfHeader():
     """
 
     __slots__ = (
-        "signature", "fields", "last_update", "record_length", "record_count",
+        "signature", "fields", "_last_update", "record_length", "record_count",
         "header_length", "_changed", "flag", "_code_page", "_ignore_errors"
     )
 
@@ -77,11 +77,11 @@ class DbfHeader():
 
         """
         # for IDE inspection
-        self._ignore_errors = self._code_page = None
+        self._ignore_errors = self._code_page = self._last_update = None
 
         self.signature = signature
         self.fields = list(fields) if fields is not None else []
-        self.last_update = get_gate(last_update)
+        self.last_update = last_update
         self.record_length = record_length
         self.header_length = header_length
         self.record_count = record_count
@@ -94,6 +94,14 @@ class DbfHeader():
             self._calc_record_length() != self.record_length
         ):
             raise ValueError("record length doesn't match sum(fields.length)")
+
+    @property
+    def last_update(self):
+        return self._last_update
+
+    @last_update.setter
+    def last_update(self, date):
+        self._last_update = get_date(date)
 
     @property
     def code_page(self):
@@ -165,24 +173,12 @@ class DbfHeader():
             record_length=record_length,
             header_length=header_length,
             signature=signature,
-            last_update=(year, month, day),
+            last_update=datetime.date(year, month, day),
             flag=flag,
             code_page=code_page,
         )
 
     ## properties
-    @property
-    def year(self):
-        return self.last_update.year
-
-    @property
-    def month(self):
-        return self.last_update.month
-
-    @property
-    def day(self):
-        return self.last_update.day
-
     @property
     def has_memo(self):
         """True if at least one field is a Memo field"""
@@ -215,7 +211,7 @@ class DbfHeader():
             if field.name == name:
                 return index
         else:
-            raise IndexError('Field not found: {0}'.format(name))
+            raise KeyError('Field not found: {}'.format(name))
 
     def field_names(self):
         return (field.name for field in self.fields)
@@ -307,7 +303,7 @@ class DbfHeader():
                     args = list(field)[:4]
                     type_code = args.pop(0)
                     if not isinstance(type_code, str):
-                        raise TypeError('type code "{0}" must be string'.format(type(type_code)))
+                        raise TypeError('type code "{}" must be string'.format(type(type_code)))
 
                     field = field_class_of(type_code)(
                         *args,
@@ -349,9 +345,9 @@ class DbfHeader():
         return struct.pack(
             "< 4B I 2H 16s 2B 2s",
             self.signature,
-            self.year - 1900,
-            self.month,
-            self.day,
+            self.last_update.year - 1900,
+            self.last_update.month,
+            self.last_update.day,
             self.record_count,
             self.header_length,
             self.record_length,
@@ -360,12 +356,6 @@ class DbfHeader():
             self.code_page.code_page,
             b"\x00" * 2
         )
-
-    def set_last_update(self, date=None):
-        """Update ``self.lastUpdate`` field."""
-        if date is None:
-            date = datetime.date.today()
-        self.last_update = date
 
     def __getitem__(self, item):
         """Return a field definition by numeric index or name string"""
@@ -380,6 +370,6 @@ class DbfHeader():
             # item must be field index
             return self.fields[item]
         else:
-            raise TypeError('unsupported index type ({0})'.format(type(item)))
+            raise TypeError('unsupported index type ({})'.format(type(item)))
 
 # vim: et sts=4 sw=4 :

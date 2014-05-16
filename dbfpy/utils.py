@@ -24,7 +24,7 @@ def unzfill(string):
         return string
 
 
-def get_gate(date=None):
+def get_date(date=None):
     """Return `datetime.date` instance.
 
     Type of the ``date`` argument could be one of the following:
@@ -42,7 +42,7 @@ def get_gate(date=None):
         sequence:
             assuming (year, month, day, ...) sequence;
 
-    Additionaly, if ``date`` has callable ``ticks`` attribute,
+    Additionaly, if ``date`` has callable ``timestamp`` attribute,
     it will be used and result of the called would be treated
     as a timestamp value.
 
@@ -67,7 +67,9 @@ def get_gate(date=None):
     if hasattr(date, "__getitem__"):
         # a sequence (assuming date/time tuple)
         return datetime.date(*date[:3])
-    return datetime.date.fromtimestamp(date.ticks())
+    if callable(getattr(date, 'timestamp', None)):
+        return datetime.date.fromtimestamp(date.timestamp())
+    raise TypeError('Unsupported date type ({})'.format(type(date)))
 
 
 def get_date_time(value=None):
