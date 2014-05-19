@@ -60,7 +60,7 @@ class Dbf(object):
 
     """
 
-    __slots__ = ("name", "header", "stream", "memo", "_ignore_errors")
+    __slots__ = ("name", "header", "stream", "memo", "close_stream", "_ignore_errors")
 
     INVALID_VALUE = utils.INVALID_VALUE
 
@@ -89,8 +89,13 @@ class Dbf(object):
                 Default is generated from the DBF file name.
 
         """
+
+        # close self.stream when self.close() ? does not close
+        # when file argument is a stream
+        self.close_stream = True
+
         if isinstance(file, str):
-            # a filename
+            # file is a filename
             self.name = file
             if new:
                 # new table (table file must be
@@ -100,7 +105,10 @@ class Dbf(object):
                 # table file must exist
                 self.stream = open(file, ("r+b", "rb")[bool(read_only)])
         elif isinstance(file, IOBase):
-            # a stream
+            # don't close self.stream when file argument is a stream
+            self.close_stream = False
+
+            # file is a stream
             self.name = getattr(file, "name", "")
             self.stream = file
         else:
@@ -159,7 +167,7 @@ class Dbf(object):
 
     ## interface methods
 
-    def close(self, close_stream=True):
+    def close(self):
         """Close the stream, write the end of record 0x1A and truncate"""
         self.flush()
 
@@ -172,7 +180,7 @@ class Dbf(object):
             self.stream.write(b"\x1A")
             self.stream.truncate()
 
-        if close_stream:
+        if self.close_stream:
             self.stream.close()
 
     def flush(self):
