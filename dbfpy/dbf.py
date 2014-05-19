@@ -92,9 +92,12 @@ class Dbf(object):
 
         # close self.stream when self.close() ? does not close
         # when file argument is a stream
-        self.close_stream = True
+        self.close_stream = False
 
         if isinstance(file, str):
+            # close self.stream when file argument is a str
+            self.close_stream = True
+
             # file is a filename
             self.name = file
             if new:
@@ -105,9 +108,6 @@ class Dbf(object):
                 # table file must exist
                 self.stream = open(file, ("r+b", "rb")[bool(read_only)])
         elif isinstance(file, IOBase):
-            # don't close self.stream when file argument is a stream
-            self.close_stream = False
-
             # file is a stream
             self.name = getattr(file, "name", "")
             self.stream = file

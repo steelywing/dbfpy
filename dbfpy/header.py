@@ -255,7 +255,7 @@ class DbfHeader():
     def flush(self, stream):
         if not self.changed:
             return
-        self.set_last_update()
+        self.last_update = datetime.date.today()
         self.write(stream)
 
     def set_memo_file(self, memo):
