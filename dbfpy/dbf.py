@@ -37,6 +37,7 @@ Examples:
         dbf.close()
 
 """
+from io import IOBase
 
 __version__ = "$Revision: 1.9 $"[11:-2]
 __date__ = "$Date: 2012/12/17 19:16:57 $"[7:-2]
@@ -98,10 +99,12 @@ class Dbf(object):
             else:
                 # table file must exist
                 self.stream = open(file, ("r+b", "rb")[bool(read_only)])
-        else:
+        elif isinstance(file, IOBase):
             # a stream
             self.name = getattr(file, "name", "")
             self.stream = file
+        else:
+            raise TypeError('Unsupported file type ({})'.format(type(file)))
 
         if new:
             self.header = DbfHeader()
@@ -156,7 +159,7 @@ class Dbf(object):
 
     ## interface methods
 
-    def close(self):
+    def close(self, close_stream=True):
         """Close the stream, write the end of record 0x1A and truncate"""
         self.flush()
 
@@ -169,7 +172,8 @@ class Dbf(object):
             self.stream.write(b"\x1A")
             self.stream.truncate()
 
-        self.stream.close()
+        if close_stream:
+            self.stream.close()
 
     def flush(self):
         """Flush data to the associated stream."""

@@ -357,19 +357,27 @@ class DbfHeader():
             b"\x00" * 2
         )
 
-    def __getitem__(self, item):
+    def __contains__(self, key):
+        try:
+            self[key]
+            return True
+        except (KeyError, IndexError, TypeError):
+            return False
+
+    def __getitem__(self, key):
         """Return a field definition by numeric index or name string"""
-        if isinstance(item, str):
-            name = item.upper()
+        if isinstance(key, str):
+            name = key.upper()
             for field in self.fields:
                 if field.name == name:
                     return field
             else:
-                raise KeyError(item)
-        elif isinstance(item, int):
+                raise KeyError(key)
+
+        if isinstance(key, int):
             # item must be field index
-            return self.fields[item]
-        else:
-            raise TypeError('unsupported index type ({})'.format(type(item)))
+            return self.fields[key]
+
+        raise TypeError('Unsupported key type ({})'.format(type(key)))
 
 # vim: et sts=4 sw=4 :
