@@ -9,18 +9,55 @@ TODO:
 __version__ = "$Revision: 1.15 $"[11:-2]
 __date__ = "$Date: 2010/12/14 11:04:49 $"[7:-2]
 
-__all__ = ["field_class_of", "DbfField"]  # field classes added at the end of the module
+# field classes added at the end of the module
+__all__ = ['DbfField', 'DbfFieldFactory']
 
 import datetime
 import struct
-import locale
 
 from .memo import MemoData
 from . import utils
 from .code_page import CodePage
 
 
-## abstract definitions
+class DbfFields:
+    """All DbfField implementation."""
+    _fields = {}
+
+    @classmethod
+    def register(cls, field_class):
+        """Register field definition class.
+
+        ``field_class`` should be subclass of the `DbfField`.
+
+        Use `lookupFor` to retrieve field definition class
+        by the type code.
+
+        """
+        if field_class.type_code is None:
+            raise ValueError("type code ({}) isn't defined".format(field_class.type_code))
+
+        key = field_class.type_code.upper()
+        cls._fields[key] = field_class
+
+    @classmethod
+    def get(cls, type_code):
+        """Return field definition class for the given type code.
+
+        ``type_code`` must be a single character. That type should be
+        previously registered.
+
+        Use `register` to register new field class.
+
+        Return:
+            Return value is a subclass of the `DbfField`.
+
+        """
+        if not isinstance(type_code, str) or type_code.upper() not in cls._fields:
+            raise KeyError('type code ({}) not support'.format(type_code))
+
+        return cls._fields[type_code.upper()]
+
 
 class DbfField(object):
     """Abstract field definition.
@@ -58,14 +95,17 @@ class DbfField(object):
     # overridden in child classes
     default_value = None
 
+    # True if field data is kept in the Memo file
+    is_memo = False
+
     def __init__(
             self, name, length=None, decimal_count=0,
             code_page=0, start=None, ignore_errors=False,
     ):
         """Initialize instance."""
 
-        assert self.type_code is not None, "Type code must be overridden"
-        assert self.default_value is not None, "Default value must be overridden"
+        assert self.type_code is not None, "type_code must be overridden"
+        assert self.default_value is not None, "default_value must be overridden"
 
         ## fix arguments
         if self.default_length is None:
@@ -103,26 +143,24 @@ class DbfField(object):
             raise TypeError('name must be str or bytes')
 
         if len(name.encode(self.code_page.encoding)) > 10:
-            raise ValueError("field name '%s' is more than 11 bytes" % name)
+            raise ValueError("field name '%s' is more than 10 bytes" % name)
 
         self._name = name.upper()
 
     @property
     def code_page(self):
+        """CodePage instance
+
+        Prefer to share 1 CodePage instance
+        """
         return self._code_page
 
     @code_page.setter
     def code_page(self, code_page):
-        # prefer to share 1 CodePage instance
         if not isinstance(code_page, CodePage):
             code_page = CodePage(code_page)
 
         self._code_page = code_page
-
-    @property
-    def is_memo(self):
-        """True if field data is kept in the Memo file"""
-        return self.type_code in "GMP"
 
     @classmethod
     def parse(cls, string, start, code_page=0, ignore_errors=False):
@@ -346,6 +384,7 @@ class DbfMemoField(DbfField):
     type_code = "M"
     default_value = b"\x00" * 4
     default_length = 4
+    is_memo = True
     # MemoFile instance.  Must be set before reading or writing to the field.
     file = None
     # MemoData type for strings written to the memo file
@@ -375,6 +414,7 @@ class DbfGeneralField(DbfField):
     """Definition of the general (OLE object) field."""
 
     type_code = "G"
+    is_memo = True
     memoType = MemoData.TYPE_OBJECT
 
 
@@ -461,43 +501,22 @@ class DbfDateTimeField(DbfField):
         return string
 
 
-_fieldsRegistry = {}
+class DbfPictureField(DbfField):
+    type_code = 'P'
+    is_memo = True
 
+    def __init__(self):
+        raise Exception('not implement yet')
+        super().__init__()
 
-def register_field(field_class):
-    """Register field definition class.
-
-    ``field_class`` should be subclass of the `DbfField`.
-
-    Use `lookupFor` to retrieve field definition class
-    by the type code.
-
-    """
-    assert field_class.type_code is not None, "Type code isn't defined"
-    _fieldsRegistry[field_class.type_code.upper()] = field_class
-
-
-def field_class_of(type_code):
-    """Return field definition class for the given type code.
-
-    ``type_code`` must be a single character. That type should be
-    previously registered.
-
-    Use `registerField` to register new field class.
-
-    Return:
-        Return value is a subclass of the `DbfField`.
-
-    """
-    return _fieldsRegistry[type_code.upper()]
 
 ## register generic types
-
 for (type_code, klass) in list(globals().items()):
     if (isinstance(klass, type) and
-            issubclass(klass, DbfField) and klass is not DbfField):
-        __all__.append(type_code)
-        register_field(klass)
-del type_code, klass
+        issubclass(klass, DbfField) and
+        klass is not DbfField
+    ):
+        DbfFields.register(klass)
+        __all__.append(klass.__name__)
 
 # vim: et sts=4 sw=4 :

@@ -73,7 +73,7 @@ class CodePage:
     def __init__(self, code=None):
         """
         code:
-            could be code page (int), encoding (string) or this class
+            code page (int), encoding (string) or this class
         """
         if code is None:
             # default use system encoding

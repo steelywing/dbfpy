@@ -14,7 +14,7 @@ import datetime
 import struct
 import textwrap
 
-from .fields import DbfField, field_class_of
+from .fields import DbfField, DbfFields
 from .utils import get_date
 from .code_page import CodePage
 
@@ -158,7 +158,7 @@ class DbfHeader():
             if len(data) < 32 or data[0] == 0x0D:
                 break
 
-            field = field_class_of(
+            field = DbfFields.create(
                 chr(data[11])
             ).parse(
                 data, pos, code_page=code_page
@@ -305,7 +305,7 @@ class DbfHeader():
                     if not isinstance(type_code, str):
                         raise TypeError('type code "{}" must be string'.format(type(type_code)))
 
-                    field = field_class_of(type_code)(
+                    field = DbfFields.create(type_code)(
                         *args,
                         code_page=self.code_page,
                         start=self.record_length,
