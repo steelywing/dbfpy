@@ -12,7 +12,7 @@ import os
 import struct
 import locale
 
-class MemoData(str):
+class MemoData(bytes):
 
     """Data read from or written to Memo file.
 
@@ -62,7 +62,6 @@ class MemoFile(object):
             new:
                 True to create new memo file,
                 False to open existing file.
-
         """
         self.is_fpt = fpt
         if isinstance(f, str):
@@ -110,7 +109,6 @@ class MemoFile(object):
                 True if file is FoxPro Memo file.
                 If isFpt is False, DBF memos have
                 extension DBT instead of FPT.
-
         """
         (_basename, _ext) = os.path.splitext(name)
         if _ext.upper() in ("", ".DBF"):
@@ -125,24 +123,23 @@ class MemoFile(object):
         """Read the block addressed by blocknum
 
         Return a MemoData object.
-
         """
         self.stream.seek(self.blocksize * blocknum)
         if self.is_fpt:
-            (_type, _len) = struct.unpack(">LL", self.stream.read(8))
+            _type, _len = struct.unpack(">LL", self.stream.read(8))
             if _type == MemoData.TYPE_NULL:
                 _value = b''
             else:
                 _value = self.stream.read(_len)
-        else: # DBT
+        else:
+            # DBT
             _type = MemoData.TYPE_MEMO
             self.stream.seek(self.blocksize * blocknum)
             _value = b''
             while self.EOT not in _value:
                 _value += self.stream.read(self.blocksize)
             _value = _value[:_value.find(self.EOT)]
-            
-        _value = _value.decode(locale.getpreferredencoding())
+
         return MemoData(_value, _type)
 
     def write(self, value):
@@ -150,10 +147,10 @@ class MemoFile(object):
 
         The value argument may be simple string or a MemoData object.
         In the former case value type is assumed to be TYPE_MEMO.
-
         """
         _rv = self.tail
-        value = value.encode(locale.getpreferredencoding())
+        if not isinstance(value, bytes):
+            raise ValueError('value must be bytes')
         self.stream.seek(self.blocksize * _rv)
         if self.is_fpt:
             _length = len(value) + 8

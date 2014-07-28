@@ -109,7 +109,6 @@ class DbfHeader():
 
     @code_page.setter
     def code_page(self, code_page):
-        # prefer to share 1 CodePage instance
         if not isinstance(code_page, CodePage):
             code_page = CodePage(code_page)
 
@@ -158,9 +157,7 @@ class DbfHeader():
             if len(data) < 32 or data[0] == 0x0D:
                 break
 
-            field = DbfFields.parse(
-                data, pos, code_page=code_page
-            )
+            field = DbfFields.parse(data, pos)
             fields.append(field)
             pos = field.start + field.length
 
@@ -308,7 +305,6 @@ class DbfHeader():
 
                     field = DbfFields.get(type_code)(
                         *args,
-                        code_page=self.code_page,
                         start=self.record_length,
                         ignore_errors=self._ignore_errors
                     )

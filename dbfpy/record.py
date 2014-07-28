@@ -99,7 +99,8 @@ class DbfRecord(object):
         """Return record read from the string."""
         try:
             return [field.decode(
-                string[field.start:field.start + field.length]
+                string[field.start:field.start + field.length],
+                self.header.code_page.encoding
             ) for field in self.header.fields]
         except:
             if self.header.ignore_errors:
@@ -146,7 +147,7 @@ class DbfRecord(object):
         return b"".join(
             [(b' ', b'*')[self.deleted]] +
             [
-                _def.encode(_dat)
+                _def.encode(_dat, self.header.code_page.encoding)
                 for (_def, _dat) in zip(self.header.fields, self.fields)
             ]
         )
