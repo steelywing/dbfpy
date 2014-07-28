@@ -158,9 +158,7 @@ class DbfHeader():
             if len(data) < 32 or data[0] == 0x0D:
                 break
 
-            field = DbfFields.create(
-                chr(data[11])
-            ).parse(
+            field = DbfFields.parse(
                 data, pos, code_page=code_page
             )
             fields.append(field)
@@ -302,10 +300,13 @@ class DbfHeader():
                 if hasattr(field, '__iter__'):
                     args = list(field)[:4]
                     type_code = args.pop(0)
-                    if not isinstance(type_code, str):
+                    if isinstance(type_code, str):
+                        type_code = type_code.encode()
+
+                    if not isinstance(type_code, bytes):
                         raise TypeError('type code "{}" must be string'.format(type(type_code)))
 
-                    field = DbfFields.create(type_code)(
+                    field = DbfFields.get(type_code)(
                         *args,
                         code_page=self.code_page,
                         start=self.record_length,

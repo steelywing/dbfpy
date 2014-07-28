@@ -2,7 +2,6 @@ __author__ = 'Wing'
 
 import locale
 import unittest
-
 import env
 from dbfpy.code_page import CodePage
 

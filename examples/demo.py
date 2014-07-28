@@ -7,9 +7,9 @@ from dbfpy import dbf
 db = dbf.Dbf('new.dbf', new=True)
 db.header.code_page = 0x78
 db.add_field(
-    ("C", "NAME", 15),
-    ("C", "SURNAME", 25),
-    ("D", "BIRTHDATE"),
+    (b'C', "NAME", 15),
+    (b'C', "SURNAME", 25),
+    (b'D', "BIRTHDATE"),
 )
 
 for (name, surname, birthdate) in (

@@ -53,10 +53,37 @@ class DbfFields:
             Return value is a subclass of the `DbfField`.
 
         """
-        if not isinstance(type_code, str) or type_code.upper() not in cls._fields:
+
+        if not isinstance(type_code, bytes) or type_code.upper() not in cls._fields:
             raise KeyError('type code ({}) not support'.format(type_code))
 
         return cls._fields[type_code.upper()]
+
+    @classmethod
+    def parse(cls, string, start, code_page=0, ignore_errors=False):
+        """Decode dbf field definition from the string data.
+
+        Arguments:
+            string:
+                a string, dbf definition is decoded from. length of
+                the string must be 32 bytes.
+            start:
+                position in the database file.
+            ignore_errors:
+                initial error processing mode for the new field (boolean)
+
+        """
+        if not isinstance(string, bytes) or len(string) != 32:
+            raise ValueError('String ({}) is not a 32 length bytes'.format(string))
+
+        return cls.get(string[11:12])(
+            utils.unzfill(string[:11]),
+            code_page=code_page,
+            length=string[16],
+            decimal_count=string[17],
+            start=start,
+            ignore_errors=ignore_errors,
+        )
 
 
 class DbfField(object):
@@ -99,8 +126,8 @@ class DbfField(object):
     is_memo = False
 
     def __init__(
-            self, name, length=None, decimal_count=0,
-            code_page=0, start=None, ignore_errors=False,
+        self, name, length=None, decimal_count=0,
+        code_page=0, start=None, ignore_errors=False,
     ):
         """Initialize instance."""
 
@@ -162,32 +189,6 @@ class DbfField(object):
 
         self._code_page = code_page
 
-    @classmethod
-    def parse(cls, string, start, code_page=0, ignore_errors=False):
-        """Decode dbf field definition from the string data.
-
-        Arguments:
-            string:
-                a string, dbf definition is decoded from. length of
-                the string must be 32 bytes.
-            start:
-                position in the database file.
-            ignore_errors:
-                initial error processing mode for the new field (boolean)
-
-        """
-        if len(string) != 32:
-            raise ValueError('String is not 32 bytes length ({0})'.format(len(string)))
-
-        return cls(
-            utils.unzfill(string[:11]),
-            code_page=code_page,
-            length=string[16],
-            decimal_count=string[17],
-            start=start,
-            ignore_errors=ignore_errors,
-        )
-
     def to_bytes(self):
         """Return encoded field definition.
 
@@ -244,8 +245,8 @@ class DbfField(object):
 class DbfCharacterField(DbfField):
     """Definition of the character field."""
 
-    type_code = "C"
-    default_value = ""
+    type_code = b'C'
+    default_value = ''
 
     def decode(self, value):
         """Return string object.
@@ -264,7 +265,7 @@ class DbfCharacterField(DbfField):
 class DbfNumericField(DbfField):
     """Definition of the numeric field."""
 
-    type_code = "N"
+    type_code = b'N'
     # XXX: now I'm not sure it was a good idea to make a class field
     # `defaultValue` instead of a generic method as it was implemented
     # previously -- it's ok with all types except number, cuz
@@ -309,13 +310,13 @@ class DbfNumericField(DbfField):
 class DbfFloatField(DbfNumericField):
     """Definition of the float field - same as numeric."""
 
-    type_code = "F"
+    type_code = b'F'
 
 
 class DbfIntegerField(DbfField):
     """Definition of the integer field."""
 
-    type_code = "I"
+    type_code = b'I'
     default_length = 4
     default_value = 0
 
@@ -331,7 +332,7 @@ class DbfIntegerField(DbfField):
 class DbfCurrencyField(DbfField):
     """Definition of the currency field."""
 
-    type_code = "Y"
+    type_code = b'Y'
     default_length = 8
     default_value = 0.0
 
@@ -347,7 +348,7 @@ class DbfCurrencyField(DbfField):
 class DbfLogicalField(DbfField):
     """Definition of the logical field."""
 
-    type_code = "L"
+    type_code = b'L'
     default_value = -1
     default_length = 1
 
@@ -381,7 +382,7 @@ class DbfLogicalField(DbfField):
 class DbfMemoField(DbfField):
     """Definition of the memo field."""
 
-    type_code = "M"
+    type_code = b'M'
     default_value = b"\x00" * 4
     default_length = 4
     is_memo = True
@@ -413,7 +414,7 @@ class DbfMemoField(DbfField):
 class DbfGeneralField(DbfField):
     """Definition of the general (OLE object) field."""
 
-    type_code = "G"
+    type_code = b'G'
     is_memo = True
     memoType = MemoData.TYPE_OBJECT
 
@@ -421,7 +422,7 @@ class DbfGeneralField(DbfField):
 class DbfDateField(DbfField):
     """Definition of the date field."""
 
-    type_code = "D"
+    type_code = b'D'
 
     @utils.classproperty
     def default_value(cls):
@@ -459,7 +460,7 @@ class DbfDateTimeField(DbfField):
     # a difference between JDN (Julian Day Number)
     # and GDN (Gregorian Day Number). note, that GDN < JDN
     JDN_GDN_DIFF = 1721425
-    type_code = "T"
+    type_code = b'T'
 
     @utils.classproperty
     def default_value(cls):
@@ -502,7 +503,7 @@ class DbfDateTimeField(DbfField):
 
 
 class DbfPictureField(DbfField):
-    type_code = 'P'
+    type_code = b'P'
     is_memo = True
 
     def __init__(self):
