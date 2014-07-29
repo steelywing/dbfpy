@@ -7,9 +7,9 @@ from dbfpy import dbf
 db = dbf.Dbf('new.dbf', new=True)
 db.header.code_page = 0x78
 db.add_field(
-    ('C', b'NAME', 15),
-    ('C', b'SURNAME', 25),
-    ('D', b'BIRTHDATE'),
+    ('C', 'NAME', 15),
+    ('C', 'SURNAME', 25),
+    ('D', 'BIRTHDATE'),
 )
 
 for (name, surname, birthdate) in (
@@ -21,9 +21,9 @@ for (name, surname, birthdate) in (
         ('吳', '開深', (1984, 7, 8)),
 ):
     rec = db.new_record()
-    rec[b'NAME'] = name
-    rec[b'SURNAME'] = surname
-    rec[b'BIRTHDATE'] = birthdate
+    rec['NAME'] = name
+    rec['SURNAME'] = surname
+    rec['BIRTHDATE'] = birthdate
     db.write_record(rec)
 
 print(db, '\n\n')

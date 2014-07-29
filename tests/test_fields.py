@@ -9,8 +9,8 @@ from dbfpy import fields
 # Implement DbfField
 class _DbfField(fields.DbfField):
     type_code = ' '
+    fixed_length = 0
     default_value = 0
-    default_length = 0
 
 
 class FieldsTest(unittest.TestCase):
@@ -37,68 +37,88 @@ class FieldsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             dbf_field.name = b'N' * 11
 
-    def test_parse_type_code(self):
+    def test_parse_field(self):
+        # test parse
         field_string = bytearray(struct.pack(
             '< 11s c L 2B 14s',
             b'NAME',    # Field name
             b'N',       # Field type
             1,          # Displacement of field in record
-            20,         # Length of field
+            10,         # Length of field
             2,          # Number of decimal places
             b'\x00' * 14,
         ))
 
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfNumericField)
+        self.assertEqual(field.to_bytes(), bytes(field_string))
         self.assertEqual(field.name, b'NAME')
         self.assertEqual(field.start, 1)
-        self.assertEqual(field.length, 20)
+        self.assertEqual(field.length, 10)
         self.assertEqual(field.decimal_count, 2)
 
-        field_string[11:12] = b'F'
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field_string[11] = b'F'[0]
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfFloatField)
+        self.assertEqual(field.to_bytes(), bytes(field_string))
 
-        field_string[11:12] = b'Y'
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field_string[11] = b'Y'[0]
+        field_string[16] = 8
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfCurrencyField)
+        self.assertEqual(field.to_bytes(), bytes(field_string))
 
-        field_string[11:12] = b'I'
+        field_string[11] = b'I'[0]
+        field_string[16] = 4
         field_string[17] = 0
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfIntegerField)
+        self.assertEqual(field.to_bytes(), bytes(field_string))
 
-        field_string[11:12] = b'L'
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field_string[11] = b'L'[0]
+        field_string[16] = 1
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfLogicalField)
+        # self.assertEqual(field.to_bytes(), field_string)
 
-        field_string[11:12] = b'D'
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field_string[11] = b'D'[0]
+        field_string[16] = 8
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfDateField)
+        # self.assertEqual(field.to_bytes(), field_string)
 
-        field_string[11:12] = b'T'
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field_string[11] = b'T'[0]
+        field_string[16] = 8
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfDateTimeField)
+        # self.assertEqual(field.to_bytes(), field_string)
 
-        field_string[11:12] = b'P'
-        field = fields.DbfFields.parse(bytes(field_string), 1)
-        self.assertIsInstance(field, fields.DbfPictureField)
-
-        field_string[11:12] = b'C'
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field_string[11] = b'C'[0]
+        field_string[16] = 200
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfCharacterField)
+        self.assertEqual(field.to_bytes(), field_string)
 
-        field_string[11:12] = b'M'
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field_string[11] = b'P'[0]
+        field_string[16] = 4
+        field = fields.DbfFields.parse(bytes(field_string))
+        self.assertIsInstance(field, fields.DbfPictureField)
+        # self.assertEqual(field.to_bytes(), field_string)
+
+        field_string[11] = b'M'[0]
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfMemoField)
+        self.assertEqual(field.to_bytes(), field_string)
 
-        field_string[11:12] = b'G'
-        field = fields.DbfFields.parse(bytes(field_string), 1)
+        field_string[11] = b'G'[0]
+        field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfGeneralField)
+        self.assertEqual(field.to_bytes(), field_string)
 
-    def test_parse_length(self):
+        # test parse length
+        field_string.pop()
         with self.assertRaises(ValueError):
-            fields.DbfFields.parse(b' ', 1)
+            fields.DbfFields.parse(bytes(field_string))
 
 if __name__ == '__main__':
     unittest.main()

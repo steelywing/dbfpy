@@ -109,10 +109,10 @@ class DbfHeader():
 
     @code_page.setter
     def code_page(self, code_page):
-        if not isinstance(code_page, CodePage):
-            code_page = CodePage(code_page)
-
-        self._code_page = code_page
+        self._code_page = (
+            code_page if isinstance(code_page, CodePage)
+            else CodePage(code_page)
+        )
 
     @property
     def changed(self):
@@ -156,8 +156,12 @@ class DbfHeader():
             data = stream.read(32)
             if len(data) < 32 or data[0] == 0x0D:
                 break
-
             field = DbfFields.parse(data, pos)
+            if pos != field.start:
+                raise ValueError(
+                    'dbf fields definition is corrupt, '
+                    'fields start does not match.'
+                )
             fields.append(field)
             pos = field.start + field.length
 
@@ -202,6 +206,9 @@ class DbfHeader():
 
     def index_of_field_name(self, name):
         """Index of field named ``name``."""
+        if isinstance(name, str):
+            name = name.encode(self.code_page.encoding)
+
         for index, field in enumerate(self.fields):
             if field.name == name:
                 return index
@@ -227,7 +234,12 @@ class DbfHeader():
         ) + "\n".join([
             "%10s %4s %3s %3s" % tuple(row) for row in (
                 ['FieldName Type Len Dec'.split()] +
-                [field.info() for field in self.fields]
+                [
+                    [
+                        field.name, field.type_code,
+                        field.length, field.decimal_count
+                    ] for field in self.fields
+                ]
             )
         ])
 
@@ -284,7 +296,7 @@ class DbfHeader():
                 dbf.DbfDateField("birthdate"),
                 ("member", "L"),
             )
-            dbfh.add_field(("price", "N", 5, 2))
+            dbfh.add_field(["price", "N", 5, 2])
             dbfh.add_field(dbf.DbfNumericField("origprice", 5, 2))
 
         """
@@ -294,22 +306,22 @@ class DbfHeader():
 
         for field in fields:
             if not isinstance(field, DbfField):
-                if hasattr(field, '__iter__'):
-                    args = list(field)[:4]
-                    type_code = args.pop(0)
-                    if isinstance(type_code, str):
-                        type_code = type_code.encode()
+                if not hasattr(field, '__iter__'):
+                    raise 'field is not a {} ({})'.format(DbfField, type(field))
 
-                    if not isinstance(type_code, bytes):
-                        raise TypeError('type code "{}" must be string'.format(type(type_code)))
+                args = list(field)[:4]
+                type_code = args.pop(0)
+                name = args.pop(0)
 
-                    field = DbfFields.get(type_code)(
-                        *args,
-                        start=self.record_length,
-                        ignore_errors=self._ignore_errors
-                    )
-                else:
-                    raise 'Field is not a %s (%s)' % (DbfField, type(field))
+                if isinstance(name, str):
+                    name = name.encode(self.code_page.encoding)
+
+                field = DbfFields.get(type_code)(
+                    name,
+                    *args,
+                    start=self.record_length,
+                    ignore_errors=self._ignore_errors
+                )
 
             self.record_length += field.length
             self.fields.append(field)
@@ -364,6 +376,9 @@ class DbfHeader():
     def __getitem__(self, key):
         """Return a field definition by numeric index or name string"""
         if isinstance(key, str):
+            key = key.encode(self.code_page.encoding)
+
+        if isinstance(key, bytes):
             name = key.upper()
             for field in self.fields:
                 if field.name == name:

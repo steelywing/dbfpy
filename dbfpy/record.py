@@ -100,7 +100,7 @@ class DbfRecord(object):
         try:
             return [field.decode(
                 string[field.start:field.start + field.length],
-                self.header.code_page.encoding
+                encoding=self.header.code_page.encoding
             ) for field in self.header.fields]
         except:
             if self.header.ignore_errors:
@@ -144,10 +144,10 @@ class DbfRecord(object):
 
     def to_bytes(self):
         """Return string packed record values."""
-        return b"".join(
+        return b''.join(
             [(b' ', b'*')[self.deleted]] +
             [
-                _def.encode(_dat, self.header.code_page.encoding)
+                _def.encode(_dat, encoding=self.header.code_page.encoding)
                 for (_def, _dat) in zip(self.header.fields, self.fields)
             ]
         )
