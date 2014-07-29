@@ -276,8 +276,10 @@ class DbfNumericField(DbfField):
         string = ("%*.*f" % (self.length, self.decimal_count, value))
         if len(string) > self.length:
             if not (0 <= string.find(".") <= self.length):
-                raise ValueError("[%s] Numeric overflow: %s (field length: %i)"
-                                 % (self.name, string, self.length))
+                raise ValueError(
+                    "[%s] Numeric overflow: %s (field length: %i)" %
+                    (self.name, string, self.length)
+                )
 
             string = string[:self.length]
 
@@ -312,6 +314,14 @@ class DbfCurrencyField(DbfField):
     type_code = b'Y'
     fixed_length = 8
     default_value = 0.0
+
+    @property
+    def decimal_count(self):
+        return 4
+
+    @decimal_count.setter
+    def decimal_count(self, value):
+        pass
 
     def decode(self, value, encoding=None):
         """Return float number decoded from ``value``."""

@@ -62,11 +62,6 @@ class FieldsTest(unittest.TestCase):
         self.assertEqual(field.length, 10)
         self.assertEqual(field.decimal_count, 2)
 
-        field_string[11] = b'F'[0]
-        field = fields.DbfFields.parse(bytes(field_string))
-        self.assertIsInstance(field, fields.DbfFloatField)
-        self.assertEqual(field.to_bytes(), bytes(field_string))
-
         self.assertEqual(field.encode(123.4), b'    123.40')
 
         field.length = 12
@@ -78,8 +73,13 @@ class FieldsTest(unittest.TestCase):
         field.decimal_count = 0
         self.assertEqual(field.encode(123.4), b'         123')
         self.assertEqual(field.encode(-123.4), b'        -123')
-
         self.assertEqual(field.decode(b'   123'), 123)
+        self.assertEqual(field.decode(b'  -123'), -123)
+
+        field_string[11] = b'F'[0]
+        field = fields.DbfFields.parse(bytes(field_string))
+        self.assertIsInstance(field, fields.DbfFloatField)
+        self.assertEqual(field.to_bytes(), bytes(field_string))
 
     def test_float_field(self):
         field = fields.DbfNumericField(b'FLOAT', 10)
@@ -93,7 +93,7 @@ class FieldsTest(unittest.TestCase):
             b'F',       # Field type
             1,          # Displacement of field in record
             10,         # Length of field
-            2,          # Number of decimal places
+            4,          # Number of decimal places
             b'\x00' * 14,
         ))
 
@@ -103,22 +103,27 @@ class FieldsTest(unittest.TestCase):
         self.assertEqual(field.name, b'NAME')
         self.assertEqual(field.start, 1)
         self.assertEqual(field.length, 10)
-        self.assertEqual(field.decimal_count, 2)
+        self.assertEqual(field.decimal_count, 4)
 
-    def test_parse_field(self):
+    def test_currency_field(self):
+        field = fields.DbfCurrencyField(b'NAME')
+        self.assertEqual(field.name, b'NAME')
+        # fixed length 8
+        self.assertEqual(field.length, 8)
+        # currency fixed decimal count to 4
+        self.assertEqual(field.decimal_count, 4)
+
         # test parse
         field_string = bytearray(struct.pack(
             '< 11s c L 2B 14s',
             b'NAME',    # Field name
-            b'N',       # Field type
+            b'Y',       # Field type
             1,          # Displacement of field in record
-            10,         # Length of field
-            2,          # Number of decimal places
+            8,          # Length of field
+            4,          # Number of decimal places
             b'\x00' * 14,
         ))
 
-        field_string[11] = b'Y'[0]
-        field_string[16] = 8
         field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfCurrencyField)
         self.assertEqual(field.to_bytes(), bytes(field_string))
