@@ -258,30 +258,18 @@ class DbfNumericField(DbfField):
     """Definition of the numeric field."""
 
     type_code = b'N'
-    # XXX: now I'm not sure it was a good idea to make a class field
-    # `defaultValue` instead of a generic method as it was implemented
-    # previously -- it's ok with all types except number, cuz
-    # if self.decimalCount is 0, we should return 0 and 0.0 otherwise.
-    default_value = 0
+    default_value = 0.0
 
     def decode(self, value, encoding=locale.getpreferredencoding()):
         """Return a number decoded from ``value``.
 
-        If decimals is zero, value will be decoded as an integer;
-        or as a float otherwise.
-
         Return:
-            Return value is a int (long) or float instance.
+            Return value is float.
         """
         try:
-            value = float(value.strip(b" \x00").decode(encoding))
+            return float(value.strip(b" \x00").decode(encoding))
         except ValueError:
-            value = 0
-
-        if self.decimal_count == 0:
-            value = int(value)
-
-        return float(value)
+            return 0.0
 
     def encode(self, value, encoding=locale.getpreferredencoding()):
         """Return string containing encoded ``value``."""

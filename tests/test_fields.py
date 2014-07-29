@@ -37,7 +37,12 @@ class FieldsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             dbf_field.name = b'N' * 11
 
-    def test_parse_field(self):
+    def test_numeric_field(self):
+        field = fields.DbfNumericField(b'NUM', 10, decimal_count=2)
+        self.assertEqual(field.name, b'NUM')
+        self.assertEqual(field.length, 10)
+        self.assertEqual(field.decimal_count, 2)
+
         # test parse
         field_string = bytearray(struct.pack(
             '< 11s c L 2B 14s',
@@ -61,6 +66,56 @@ class FieldsTest(unittest.TestCase):
         field = fields.DbfFields.parse(bytes(field_string))
         self.assertIsInstance(field, fields.DbfFloatField)
         self.assertEqual(field.to_bytes(), bytes(field_string))
+
+        self.assertEqual(field.encode(123.4), b'    123.40')
+
+        field.length = 12
+        self.assertEqual(field.encode(123.4), b'      123.40')
+        self.assertEqual(field.encode(-123.4), b'     -123.40')
+        self.assertEqual(field.decode(b'  123.40'), 123.4)
+        self.assertEqual(field.decode(b'  123.4'), 123.4)
+
+        field.decimal_count = 0
+        self.assertEqual(field.encode(123.4), b'         123')
+        self.assertEqual(field.encode(-123.4), b'        -123')
+
+        self.assertEqual(field.decode(b'   123'), 123)
+
+    def test_float_field(self):
+        field = fields.DbfNumericField(b'FLOAT', 10)
+        self.assertEqual(field.name, b'FLOAT')
+        self.assertEqual(field.length, 10)
+
+        # test parse
+        field_string = bytearray(struct.pack(
+            '< 11s c L 2B 14s',
+            b'NAME',    # Field name
+            b'F',       # Field type
+            1,          # Displacement of field in record
+            10,         # Length of field
+            2,          # Number of decimal places
+            b'\x00' * 14,
+        ))
+
+        field = fields.DbfFields.parse(bytes(field_string))
+        self.assertIsInstance(field, fields.DbfNumericField)
+        self.assertEqual(field.to_bytes(), bytes(field_string))
+        self.assertEqual(field.name, b'NAME')
+        self.assertEqual(field.start, 1)
+        self.assertEqual(field.length, 10)
+        self.assertEqual(field.decimal_count, 2)
+
+    def test_parse_field(self):
+        # test parse
+        field_string = bytearray(struct.pack(
+            '< 11s c L 2B 14s',
+            b'NAME',    # Field name
+            b'N',       # Field type
+            1,          # Displacement of field in record
+            10,         # Length of field
+            2,          # Number of decimal places
+            b'\x00' * 14,
+        ))
 
         field_string[11] = b'Y'[0]
         field_string[16] = 8
