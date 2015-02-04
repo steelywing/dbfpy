@@ -3,13 +3,14 @@ Python 3 modules for accessing .dbf files
 
 ### Features
 
-* Support dBase, FoxPro...
+* Support FoxPro
 * Support memo
 * Code page
 
 ### TODO
 
 * Write test
+* dBase compatible
 
 ### Install
 
